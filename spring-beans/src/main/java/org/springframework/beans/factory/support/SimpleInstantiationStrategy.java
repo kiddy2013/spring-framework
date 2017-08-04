@@ -37,6 +37,9 @@ import org.springframework.util.StringUtils;
  * <p>Does not support Method Injection, although it provides hooks for subclasses
  * to override to add Method Injection support, for example by overriding methods.
  *
+ * 这个Strategy是Spring用来生成Bean对象的默认类，它提供了两种实例化java对象的方法，
+ * 一种是通过BeanUtils，它使用JVM的反射功能，
+ * 一种是通过Cglib来生成的
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @since 1.1
@@ -63,6 +66,7 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 		if (bd.getMethodOverrides().isEmpty()) {
 			Constructor<?> constructorToUse;
 			synchronized (bd.constructorArgumentLock) {
+				// 这里取到指定的构造器或者生成对象的工厂方法来对Bean进行实例化
 				constructorToUse = (Constructor<?>) bd.resolvedConstructorOrFactoryMethod;
 				if (constructorToUse == null) {
 					final Class<?> clazz = bd.getBeanClass();
@@ -85,10 +89,13 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 					}
 				}
 			}
+			// 通过BeanUtils进行实例化，这个BeanUtils的实例化通过Constructor来实例化Bean,
+			// 在BeanUtils中可以看到具体的调用ctor.newInstance(args)
 			return BeanUtils.instantiateClass(constructorToUse);
 		}
 		else {
 			// Must generate CGLIB subclass.
+			// 使用Cglib来实例化对象
 			return instantiateWithMethodInjection(bd, beanName, owner);
 		}
 	}

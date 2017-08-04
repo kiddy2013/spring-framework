@@ -105,6 +105,8 @@ class BeanDefinitionValueResolver {
 	public Object resolveValueIfNecessary(Object argName, @Nullable Object value) {
 		// We must check each value to see whether it requires a runtime reference
 		// to another bean to be resolved.
+		// 这里对RuntimeBeanReference进行解析，RuntimeBeanReference是在
+		// 对BeanDefinition进行解析时生成的数据对象
 		if (value instanceof RuntimeBeanReference) {
 			RuntimeBeanReference ref = (RuntimeBeanReference) value;
 			return resolveReference(argName, ref);
@@ -130,6 +132,7 @@ class BeanDefinitionValueResolver {
 					ObjectUtils.getIdentityHexString(bd);
 			return resolveInnerBean(argName, innerBeanName, bd);
 		}
+		// 这里对ManagedArray进行解析
 		else if (value instanceof ManagedArray) {
 			// May need to resolve contained runtime references.
 			ManagedArray array = (ManagedArray) value;
@@ -346,8 +349,11 @@ class BeanDefinitionValueResolver {
 	 */
 	private Object resolveReference(Object argName, RuntimeBeanReference ref) {
 		try {
+			// 从RuntimeBeanReference去打Reference的名字，这个RuntimeBeanReference是在
+			// 载入BeanDefinition时根据配置生成的
 			String refName = ref.getBeanName();
 			refName = String.valueOf(doEvaluate(refName));
+			// 如果ref是在双亲的Ioc容器中，那就到双亲的Ioc容器中去获取
 			if (ref.isToParent()) {
 				if (this.beanFactory.getParentBeanFactory() == null) {
 					throw new BeanCreationException(
@@ -357,6 +363,8 @@ class BeanDefinitionValueResolver {
 				}
 				return this.beanFactory.getParentBeanFactory().getBean(refName);
 			}
+			//在当前的Ioc容器中去获取Bean，这里会触发一个getBean的过程，如果依赖注入没有发生，这里会
+			// 触发相应的依赖注入的发生
 			else {
 				Object bean = this.beanFactory.getBean(refName);
 				this.beanFactory.registerDependentBean(refName, this.beanName);
