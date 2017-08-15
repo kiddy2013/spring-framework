@@ -16,20 +16,10 @@
 
 package org.springframework.aop.framework;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.aopalliance.aop.Advice;
 import org.aopalliance.intercept.Interceptor;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.aop.Advisor;
 import org.springframework.aop.TargetSource;
 import org.springframework.aop.framework.adapter.AdvisorAdapterRegistry;
@@ -37,18 +27,17 @@ import org.springframework.aop.framework.adapter.GlobalAdvisorAdapterRegistry;
 import org.springframework.aop.framework.adapter.UnknownAdviceTypeException;
 import org.springframework.aop.target.SingletonTargetSource;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.BeanClassLoaderAware;
-import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.BeanFactoryAware;
-import org.springframework.beans.factory.BeanFactoryUtils;
-import org.springframework.beans.factory.FactoryBean;
-import org.springframework.beans.factory.FactoryBeanNotInitializedException;
-import org.springframework.beans.factory.ListableBeanFactory;
+import org.springframework.beans.factory.*;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
+import java.util.*;
 
 /**
  * {@link org.springframework.beans.factory.FactoryBean} implementation that builds an
@@ -248,7 +237,9 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 	 */
 	@Override
 	public Object getObject() throws BeansException {
+		//初始化通知器链
 		initializeAdvisorChain();
+		//对Singleton和Prototype的类型进行区分，生成对应的proxy
 		if (isSingleton()) {
 			return getSingletonInstance();
 		}
@@ -318,14 +309,17 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 			this.targetSource = freshTargetSource();
 			if (this.autodetectInterfaces && getProxiedInterfaces().length == 0 && !isProxyTargetClass()) {
 				// Rely on AOP infrastructure to tell us what interfaces to proxy.
+				// 根据AOP框架来判断需要代理的接口
 				Class<?> targetClass = getTargetClass();
 				if (targetClass == null) {
 					throw new FactoryBeanNotInitializedException("Cannot determine target class for proxy");
 				}
+				//这里设置代理对象的接口
 				setInterfaces(ClassUtils.getAllInterfacesForClass(targetClass, this.proxyClassLoader));
 			}
 			// Initialize the shared singleton instance.
 			super.setFrozen(this.freezeProxy);
+			// 注意这里的方法会使用ProxyFactory来生成需要的Proxy
 			this.singletonInstance = getProxy(createAopProxy());
 		}
 		return this.singletonInstance;
@@ -365,6 +359,7 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 	}
 
 	/**
+	 * 通过createAopProxy返回的AopProxy来得到代理对象
 	 * Return the proxy object to expose.
 	 * <p>The default implementation uses a {@code getProxy} call with
 	 * the factory's bean class loader. Can be overridden to specify a
@@ -447,6 +442,7 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 			}
 
 			// Materialize interceptor chain from bean names.
+			// 这里添加Adviser链的调用，是通过interceptorNames属性进行配置的
 			for (String name : this.interceptorNames) {
 				if (logger.isTraceEnabled()) {
 					logger.trace("Configuring advisor or advice '" + name + "'");
@@ -464,14 +460,19 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 				else {
 					// If we get here, we need to add a named interceptor.
 					// We must check if it's a singleton or prototype.
+					// 如果程序在这里被调用，那么需要加入命名的拦截器advice，并且需要检查这
+					// 个Bean是singleton还是prototype类型
 					Object advice;
+					// 如果是singleton类型的Bean
 					if (this.singleton || this.beanFactory.isSingleton(name)) {
 						// Add the real Advisor/Advice to the chain.
+						// 加入advice或者adviser
 						advice = this.beanFactory.getBean(name);
 					}
 					else {
 						// It's a prototype Advice or Advisor: replace with a prototype.
 						// Avoid unnecessary creation of prototype bean just for advisor chain initialization.
+						// 对prototype类型的Bean处理
 						advice = new PrototypePlaceholderAdvisor(name);
 					}
 					addAdvisorOnChainCreation(advice, name);
