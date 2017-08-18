@@ -19,6 +19,7 @@ package org.springframework.core;
 import org.springframework.lang.Nullable;
 
 /**
+ * 接口定义一个的通用方式，用于连接和访问任意一个对象的元数据
  * Interface defining a generic contract for attaching and accessing metadata
  * to/from arbitrary objects.
  *
