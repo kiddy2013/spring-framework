@@ -31,11 +31,17 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.StringValueResolver;
 
 /**
+ * Configuration接口被大多数BeanFactory实现。
+ * 给一个BeanFactory提供除了BeanFactory的基本方法以外，增加了配置的能力，
  * Configuration interface to be implemented by most bean factories. Provides
  * facilities to configure a bean factory, in addition to the bean factory
  * client methods in the {@link org.springframework.beans.factory.BeanFactory}
  * interface.
  *
+ * 这个bean factory接口并不意味着可以正常使用的应用程序代码：
+ * 坚持BeanFactory或ListableBeanFactory对于典型的需要。
+ * 这个扩展的接口只是为了让框架内部能即插即用，
+ * 和特殊访问bean factory的配置方法。
  * <p>This bean factory interface is not meant to be used in normal application
  * code: Stick to {@link org.springframework.beans.factory.BeanFactory} or
  * {@link org.springframework.beans.factory.ListableBeanFactory} for typical
@@ -51,6 +57,8 @@ import org.springframework.util.StringValueResolver;
 public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, SingletonBeanRegistry {
 
 	/**
+	 * 标准单例作用域的范围标识符：“singleton”。
+	 * 自定义的做用户，可以通过registerScope方法添加
 	 * Scope identifier for the standard singleton scope: "singleton".
 	 * Custom scopes can be added via {@code registerScope}.
 	 * @see #registerScope
@@ -58,6 +66,7 @@ public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, Single
 	String SCOPE_SINGLETON = "singleton";
 
 	/**
+	 * 标准原型作用域的范围标识符：“prototype”。
 	 * Scope identifier for the standard prototype scope: "prototype".
 	 * Custom scopes can be added via {@code registerScope}.
 	 * @see #registerScope
