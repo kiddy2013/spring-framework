@@ -32,6 +32,8 @@ import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 
 /**
+ * 构造函数参数值的Holder，通常作为bean定义的一部分。
+ * 支持构造函数参数列表中特定索引的值以及类型的泛型参数匹配。
  * Holder for constructor argument values, typically as part of a bean definition.
  *
  * <p>Supports values for a specific index in the constructor argument list
@@ -430,6 +432,7 @@ public class ConstructorArgumentValues {
 
 
 	/**
+	 * 一个构造函数参数值的持有者，一个可选的type属性指示实际的构造函数参数的目标类型。
 	 * Holder for a constructor argument value, with an optional type
 	 * attribute indicating the target type of the actual constructor argument.
 	 */
@@ -543,6 +546,7 @@ public class ConstructorArgumentValues {
 		}
 
 		/**
+		 * 返回此Holder是否已经包含已转换的值（{@code true}），还是需要转换该值（{@code false}）。
 		 * Return whether this holder contains a converted value already ({@code true}),
 		 * or whether the value still needs to be converted ({@code false}).
 		 */
