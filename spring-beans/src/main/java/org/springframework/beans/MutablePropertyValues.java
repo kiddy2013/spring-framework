@@ -27,6 +27,8 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 
 /**
+ * PropertyValues的默认实现
+ * 允许简单的操作属性，并提供构造函数以支持从Map的深层复制和构造。
  * Default implementation of the {@link PropertyValues} interface.
  * Allows simple manipulation of properties, and provides constructors
  * to support deep copy and construction from a Map.

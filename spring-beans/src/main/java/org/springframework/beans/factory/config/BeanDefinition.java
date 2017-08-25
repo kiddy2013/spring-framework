@@ -258,6 +258,9 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
 	ConstructorArgumentValues getConstructorArgumentValues();
 
 	/**
+	 * 返回要应用于bean的新实例的属性值。
+	 * 返回的实例可以在bean工厂后处理过程中进行修改。
+	 * 返回的MutablePropertyValues不能为null
 	 * Return the property values to be applied to a new instance of the bean.
 	 * <p>The returned instance can be modified during bean factory post-processing.
 	 * @return the MutablePropertyValues object (never {@code null})
@@ -285,11 +288,14 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
 	boolean isPrototype();
 
 	/**
+	 * 返回这个bean是否是“抽象的”，也就是说，不是要实例化的。
 	 * Return whether this bean is "abstract", that is, not meant to be instantiated.
 	 */
 	boolean isAbstract();
 
 	/**
+	 * 获取此BeanDefinition的角色提示。
+	 * 角色提示提供框架以及工具，指示特定BeanDefinition的作用和重要性。
 	 * Get the role hint for this {@code BeanDefinition}. The role hint
 	 * provides the frameworks as well as tools with an indication of
 	 * the role and importance of a particular {@code BeanDefinition}.
@@ -300,12 +306,14 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
 	int getRole();
 
 	/**
+	 * 返回这个bean定义的可读描述。
 	 * Return a human-readable description of this bean definition.
 	 */
 	@Nullable
 	String getDescription();
 
 	/**
+	 * 返回此bean定义来源的资源描述（出于错误的情况下显示上下文的目的）。
 	 * Return a description of the resource that this bean definition
 	 * came from (for the purpose of showing context in case of errors).
 	 */
@@ -313,6 +321,9 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
 	String getResourceDescription();
 
 	/**
+	 * 返回原始BeanDefinition，否则返回null。
+	 * 允许检索装饰的bean定义（如果有）。
+	 * 请注意，此方法返回立即发起者。 通过发起者链迭代，以查找用户定义的原始BeanDefinition。
 	 * Return the originating BeanDefinition, or {@code null} if none.
 	 * Allows for retrieving the decorated bean definition, if any.
 	 * <p>Note that this method returns the immediate originator. Iterate through the
