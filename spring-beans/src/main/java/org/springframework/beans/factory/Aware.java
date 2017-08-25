@@ -17,6 +17,8 @@
 package org.springframework.beans.factory;
 
 /**
+ * 标记superinterface，指示一个bean有资格被Spring容器通过回调式方法通知特定框架对象。
+ * 实际方法签名由单个子接口确定，但通常只包含接受单个参数的一个void返回方法。
  * Marker superinterface indicating that a bean is eligible to be
  * notified by the Spring container of a particular framework object
  * through a callback-style method. Actual method signature is
@@ -24,6 +26,12 @@ package org.springframework.beans.factory;
  * consist of just one void-returning method that accepts a single
  * argument.
  *
+ * 请注意，仅实现Aware不提供默认功能。
+ * 相反，处理必须明确地进行，例如在 BeanPostProcessor 中。
+ * 有关处理Aware接口回调的示例，请参阅
+ * org.springframework.context.support.ApplicationContextAwareProcessor
+ * 和
+ * org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory中。
  * <p>Note that merely implementing {@link Aware} provides no default
  * functionality. Rather, processing must be done explicitly, for example
  * in a {@link org.springframework.beans.factory.config.BeanPostProcessor BeanPostProcessor}.
