@@ -19,6 +19,8 @@ package org.springframework.beans.factory.config;
 import org.springframework.lang.Nullable;
 
 /**
+ * 接口为共享的bean定义注册，可以被BeanFactory实现
+ * 实现是为了用统一的方式暴露单利管理器
  * Interface that defines a registry for shared bean instances.
  * Can be implemented by {@link org.springframework.beans.factory.BeanFactory}
  * implementations in order to expose their singleton management facility
@@ -35,6 +37,7 @@ import org.springframework.lang.Nullable;
 public interface SingletonBeanRegistry {
 
 	/**
+	 * 在给定的bean名称的bean注册表中，将给定的现有对象注册为单例。
 	 * Register the given existing object as singleton in the bean registry,
 	 * under the given bean name.
 	 * <p>The given instance is supposed to be fully initialized; the registry

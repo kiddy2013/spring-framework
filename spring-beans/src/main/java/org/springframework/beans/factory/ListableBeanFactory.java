@@ -24,12 +24,16 @@ import org.springframework.core.ResolvableType;
 import org.springframework.lang.Nullable;
 
 /**
+ * 对BeanFactory的扩展，实现类可以枚举所有bean实例，而不是按照客户端的请求，一个一个的按照名字查找
+ * BeanFactory的实现类，预加载所有bean定义，（比如基于xml的factory）需要实现这个接口
  * Extension of the {@link BeanFactory} interface to be implemented by bean factories
  * that can enumerate all their bean instances, rather than attempting bean lookup
  * by name one by one as requested by clients. BeanFactory implementations that
  * preload all their bean definitions (such as XML-based factories) may implement
  * this interface.
  *
+ * 如果接口是一个可以继承的beanFactory，返回值不考虑任何BeanFactory的层次结构，只与当前的工厂定义的bean有关
+ * 可以用BeanFactoryUtils工具，来判断beans是不是也在其他工厂。
  * <p>If this is a {@link HierarchicalBeanFactory}, the return values will <i>not</i>
  * take any BeanFactory hierarchy into account, but will relate only to the beans
  * defined in the current factory. Use the {@link BeanFactoryUtils} helper class
