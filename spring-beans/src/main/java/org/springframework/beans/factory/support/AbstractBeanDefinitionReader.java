@@ -181,6 +181,8 @@ public abstract class AbstractBeanDefinitionReader implements EnvironmentCapable
 
 	@Override
 	public int loadBeanDefinitions(Resource... resources) throws BeanDefinitionStoreException {
+		//如果Resource为空，则定制BeanDefinition的载入
+		//然后启动在BeanDefinition的过程，这个过程会遍历整个Resource集合所包含的BeanDefinition信息
 		Assert.notNull(resources, "Resource array must not be null");
 		int counter = 0;
 		for (Resource resource : resources) {
