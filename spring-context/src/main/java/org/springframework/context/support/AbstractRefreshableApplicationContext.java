@@ -124,6 +124,7 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 	 */
 	@Override
 	protected final void refreshBeanFactory() throws BeansException {
+		//存在BeanFactory()则销毁，即清除工厂里面Map存放的对象
 		if (hasBeanFactory()) {
 			destroyBeans();
 			closeBeanFactory();
@@ -131,7 +132,9 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 		try {
 			//创建beanFactory
 			DefaultListableBeanFactory beanFactory = createBeanFactory();
+			//工厂标识id
 			beanFactory.setSerializationId(getId());
+			//设置容器是否允许对象覆盖，循环依赖
 			customizeBeanFactory(beanFactory);
 			//加载beanDefinitions
 			loadBeanDefinitions(beanFactory);
