@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,6 +111,13 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		this.contentNegotiationManager = contentNegotiationManager;
 	}
 
+	/**
+	 * Return the configured {@link ContentNegotiationManager}.
+	 */
+	public ContentNegotiationManager getContentNegotiationManager() {
+		return this.contentNegotiationManager;
+	}
+
 	@Override
 	public void setEmbeddedValueResolver(StringValueResolver resolver) {
 		this.embeddedValueResolver = resolver;
@@ -152,13 +159,6 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	}
 
 	/**
-	 * Return the configured {@link ContentNegotiationManager}.
-	 */
-	public ContentNegotiationManager getContentNegotiationManager() {
-		return this.contentNegotiationManager;
-	}
-
-	/**
 	 * Return the file extensions to use for suffix pattern matching.
 	 */
 	@Nullable
@@ -187,6 +187,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 * @see #getCustomTypeCondition(Class)
 	 */
 	@Override
+	@Nullable
 	protected RequestMappingInfo getMappingForMethod(Method method, Class<?> handlerType) {
 		RequestMappingInfo info = createRequestMappingInfo(method);
 		if (info != null) {
@@ -205,6 +206,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 * @see #getCustomTypeCondition(Class)
 	 * @see #getCustomMethodCondition(Method)
 	 */
+	@Nullable
 	private RequestMappingInfo createRequestMappingInfo(AnnotatedElement element) {
 		RequestMapping requestMapping = AnnotatedElementUtils.findMergedAnnotation(element, RequestMapping.class);
 		RequestCondition<?> condition = (element instanceof Class ?

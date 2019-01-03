@@ -56,6 +56,15 @@ public class MessagingMessageConverter implements MessageConverter, Initializing
 	}
 
 	/**
+	 * Create an instance with the specific payload converter.
+	 * @param payloadConverter the payload converter to use
+	 * @since 4.3.12
+	 */
+	public MessagingMessageConverter(MessageConverter payloadConverter) {
+		this(payloadConverter, new SimpleJmsHeaderMapper());
+	}
+
+	/**
 	 * Create an instance with the specified payload converter and
 	 * header mapper.
 	 */
@@ -108,9 +117,9 @@ public class MessagingMessageConverter implements MessageConverter, Initializing
 	public Object fromMessage(javax.jms.Message message) throws JMSException, MessageConversionException {
 		Map<String, Object> mappedHeaders = extractHeaders(message);
 		Object convertedObject = extractPayload(message);
-		MessageBuilder<Object> builder = (convertedObject instanceof org.springframework.messaging.Message) ?
+		MessageBuilder<Object> builder = (convertedObject instanceof org.springframework.messaging.Message ?
 				MessageBuilder.fromMessage((org.springframework.messaging.Message<Object>) convertedObject) :
-				MessageBuilder.withPayload(convertedObject);
+				MessageBuilder.withPayload(convertedObject));
 		return builder.copyHeadersIfAbsent(mappedHeaders).build();
 	}
 

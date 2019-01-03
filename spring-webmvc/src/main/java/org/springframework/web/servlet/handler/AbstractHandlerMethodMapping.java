@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ import org.springframework.web.servlet.HandlerMapping;
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
  * @since 3.1
- * @param <T> The mapping for a {@link HandlerMethod} containing the conditions
+ * @param <T> the mapping for a {@link HandlerMethod} containing the conditions
  * needed to match the handler method to incoming request.
  */
 public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMapping implements InitializingBean {
@@ -182,6 +182,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 
 	/**
 	 * Detects handler methods at initialization.
+	 * @see #initHandlerMethods
 	 */
 	@Override
 	public void afterPropertiesSet() {
@@ -190,9 +191,9 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 
 	/**
 	 * Scan beans in the ApplicationContext, detect and register handler methods.
-	 * @see #isHandler(Class)
-	 * @see #getMappingForMethod(Method, Class)
-	 * @see #handlerMethodsInitialized(Map)
+	 * @see #isHandler
+	 * @see #detectHandlerMethods
+	 * @see #handlerMethodsInitialized
 	 */
 	protected void initHandlerMethods() {
 		if (logger.isDebugEnabled()) {
@@ -223,15 +224,16 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 	}
 
 	/**
-	 * Look for handler methods in a handler.
-	 * @param handler the bean name of a handler or a handler instance
+	 * Look for handler methods in the specified handler bean.
+	 * @param handler either a bean name or an actual handler instance
+	 * @see #getMappingForMethod
 	 */
-	protected void detectHandlerMethods(final Object handler) {
+	protected void detectHandlerMethods(Object handler) {
 		Class<?> handlerType = (handler instanceof String ?
 				obtainApplicationContext().getType((String) handler) : handler.getClass());
 
 		if (handlerType != null) {
-			final Class<?> userType = ClassUtils.getUserClass(handlerType);
+			Class<?> userType = ClassUtils.getUserClass(handlerType);
 			Map<Method, T> methods = MethodIntrospector.selectMethods(userType,
 					(MethodIntrospector.MetadataLookup<T>) method -> {
 						try {
@@ -245,11 +247,10 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 			if (logger.isDebugEnabled()) {
 				logger.debug(methods.size() + " request handler methods found on " + userType + ": " + methods);
 			}
-			for (Map.Entry<Method, T> entry : methods.entrySet()) {
-				Method invocableMethod = AopUtils.selectInvocableMethod(entry.getKey(), userType);
-				T mapping = entry.getValue();
+			methods.forEach((method, mapping) -> {
+				Method invocableMethod = AopUtils.selectInvocableMethod(method, userType);
 				registerHandlerMethod(handler, invocableMethod, mapping);
-			}
+			});
 		}
 	}
 
@@ -353,10 +354,9 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 
 		if (!matches.isEmpty()) {
 			Comparator<Match> comparator = new MatchComparator(getMappingComparator(request));
-			Collections.sort(matches, comparator);
+			matches.sort(comparator);
 			if (logger.isTraceEnabled()) {
-				logger.trace("Found " + matches.size() + " matching mapping(s) for [" +
-						lookupPath + "] : " + matches);
+				logger.trace("Found " + matches.size() + " matching mapping(s) for [" + lookupPath + "] : " + matches);
 			}
 			Match bestMatch = matches.get(0);
 			if (matches.size() > 1) {
@@ -371,6 +371,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 							request.getRequestURL() + "': {" + m1 + ", " + m2 + "}");
 				}
 			}
+			request.setAttribute(BEST_MATCHING_HANDLER_ATTRIBUTE, bestMatch.handlerMethod);
 			handleMatch(bestMatch.mapping, lookupPath, request);
 			return bestMatch.handlerMethod;
 		}
@@ -476,7 +477,6 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 	/**
 	 * A registry that maintains all mappings to handler methods, exposing methods
 	 * to perform lookups and providing concurrent access.
-	 *
 	 * <p>Package-private for testing purposes.
 	 */
 	class MappingRegistry {
@@ -544,11 +544,11 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 			try {
 				HandlerMethod handlerMethod = createHandlerMethod(handler, method);
 				assertUniqueMethodMapping(handlerMethod, mapping);
+				this.mappingLookup.put(mapping, handlerMethod);
 
 				if (logger.isInfoEnabled()) {
 					logger.info("Mapped \"" + mapping + "\" onto " + handlerMethod);
 				}
-				this.mappingLookup.put(mapping, handlerMethod);
 
 				List<String> directUrls = getDirectUrls(mapping);
 				for (String url : directUrls) {
@@ -756,6 +756,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 
 	private static class EmptyHandler {
 
+		@SuppressWarnings("unused")
 		public void handle() {
 			throw new UnsupportedOperationException("Not implemented");
 		}

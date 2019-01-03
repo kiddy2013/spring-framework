@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.springframework.mock.http.client.reactive;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.function.Function;
 
 import org.reactivestreams.Publisher;
@@ -26,6 +27,7 @@ import reactor.core.publisher.Mono;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.reactive.AbstractClientHttpRequest;
 import org.springframework.http.client.reactive.ClientHttpRequest;
@@ -34,6 +36,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * Mock implementation of {@link ClientHttpRequest}.
+ *
  * @author Brian Clozel
  * @author Rossen Stoyanchev
  * @since 5.0
@@ -95,11 +98,9 @@ public class MockClientHttpRequest extends AbstractClientHttpRequest {
 
 	/**
 	 * Configure a custom handler for writing the request body.
-	 *
 	 * <p>The default write handler consumes and caches the request body so it
 	 * may be accessed subsequently, e.g. in test assertions. Use this property
 	 * when the request body is an infinite stream.
-	 *
 	 * @param writeHandler the write handler to use returning {@code Mono<Void>}
 	 * when the body has been "written" (i.e. consumed).
 	 */
@@ -114,6 +115,8 @@ public class MockClientHttpRequest extends AbstractClientHttpRequest {
 
 	@Override
 	protected void applyCookies() {
+		getCookies().values().stream().flatMap(Collection::stream)
+				.forEach(cookie -> getHeaders().add(HttpHeaders.COOKIE, cookie.toString()));
 	}
 
 	@Override

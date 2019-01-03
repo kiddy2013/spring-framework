@@ -71,7 +71,7 @@ import org.springframework.util.StringUtils;
  */
 public class PathPattern implements Comparable<PathPattern> {
 
-	private final static PathContainer EMPTY_PATH = PathContainer.parsePath("");
+	private static final PathContainer EMPTY_PATH = PathContainer.parsePath("");
 
 
 	/** The text of the parsed pattern */
@@ -156,7 +156,6 @@ public class PathPattern implements Comparable<PathPattern> {
 		return this.patternString;
 	}
 
-
 	/**
 	 * Whether this pattern matches the given path.
 	 * @param pathContainer the candidate path to attempt to match against
@@ -164,7 +163,8 @@ public class PathPattern implements Comparable<PathPattern> {
 	 */
 	public boolean matches(PathContainer pathContainer) {
 		if (this.head == null) {
-			return !hasLength(pathContainer);
+			return !hasLength(pathContainer) || 
+				(this.matchOptionalTrailingSeparator && pathContainerIsJustSeparator(pathContainer));
 		}
 		else if (!hasLength(pathContainer)) {
 			if (this.head instanceof WildcardTheRestPathElement || this.head instanceof CaptureTheRestPathElement) {
@@ -187,7 +187,9 @@ public class PathPattern implements Comparable<PathPattern> {
 	@Nullable
 	public PathMatchInfo matchAndExtract(PathContainer pathContainer) {
 		if (this.head == null) {
-			return hasLength(pathContainer) ? null : PathMatchInfo.EMPTY;
+			return hasLength(pathContainer) &&
+				!(this.matchOptionalTrailingSeparator && pathContainerIsJustSeparator(pathContainer))
+				? null : PathMatchInfo.EMPTY;
 		}
 		else if (!hasLength(pathContainer)) {
 			if (this.head instanceof WildcardTheRestPathElement || this.head instanceof CaptureTheRestPathElement) {
@@ -244,98 +246,79 @@ public class PathPattern implements Comparable<PathPattern> {
 	 * <li>'{@code /docs/cvs/*.html}' and '{@code /docs/cvs/commit.html} -> '{@code commit.html}'</li>
 	 * <li>'{@code /docs/**}' and '{@code /docs/cvs/commit} -> '{@code cvs/commit}'</li>
 	 * </ul>
-	 * <p><b>Note:</b> Assumes that {@link #matches} returns {@code true} for
+	 * <p><b>Notes:</b>
+	 * <ul>
+	 * <li>Assumes that {@link #matches} returns {@code true} for
 	 * the same path but does <strong>not</strong> enforce this.
+	 * <li>Duplicate occurrences of separators within the returned result are removed
+	 * <li>Leading and trailing separators are removed from the returned result
+	 * </ul>
 	 * @param path a path that matches this pattern
 	 * @return the subset of the path that is matched by pattern or "" if none
 	 * of it is matched by pattern elements
 	 */
 	public PathContainer extractPathWithinPattern(PathContainer path) {
+		List<Element> pathElements = path.elements();
+		int pathElementsCount = pathElements.size();
 
-		// TODO: implement extractPathWithinPattern for PathContainer
-
-		// TODO: align behavior with matchStartOfPath with regards to this:
-		// As per the contract on {@link PathMatcher}, this method will trim leading/trailing
-		// separators. It will also remove duplicate separators in the returned path.
-
-		String result = extractPathWithinPattern(path.value());
-		return PathContainer.parsePath(result);
-	}
-
-	private String extractPathWithinPattern(String path) {
-		// assert this.matches(path)
+		int startIndex = 0;
+		// Find first path element that is not a separator or a literal (i.e. the first pattern based element)
 		PathElement elem = head;
-		int separatorCount = 0;
-		boolean matchTheRest = false;
-
-		// Find first path element that is pattern based
 		while (elem != null) {
-			if (elem instanceof SeparatorPathElement || elem instanceof CaptureTheRestPathElement ||
-					elem instanceof WildcardTheRestPathElement) {
-				separatorCount++;
-				if (elem instanceof WildcardTheRestPathElement || elem instanceof CaptureTheRestPathElement) {
-					matchTheRest = true;
-				}
-			}
 			if (elem.getWildcardCount() != 0 || elem.getCaptureCount() != 0) {
 				break;
 			}
 			elem = elem.next;
+			startIndex++;
 		}
-
 		if (elem == null) {
-			return "";  // there is no pattern mapped section
+			// There is no pattern piece
+			return PathContainer.parsePath("");
 		}
-
-		// Now separatorCount indicates how many sections of the path to skip
-		char[] pathChars = path.toCharArray();
-		int len = pathChars.length;
-		int pos = 0;
-		while (separatorCount > 0 && pos < len) {
-			if (path.charAt(pos++) == separator) {
-				separatorCount--;
+		
+		// Skip leading separators that would be in the result
+		while (startIndex < pathElementsCount && (pathElements.get(startIndex) instanceof Separator)) {
+			startIndex++;
+		}
+		
+		int endIndex = pathElements.size();
+		// Skip trailing separators that would be in the result
+		while (endIndex > 0 && (pathElements.get(endIndex - 1) instanceof Separator)) {
+			endIndex--;
+		}
+		
+		boolean multipleAdjacentSeparators = false;
+		for (int i = startIndex; i < (endIndex - 1); i++) {
+			if ((pathElements.get(i) instanceof Separator) && (pathElements.get(i+1) instanceof Separator)) {
+				multipleAdjacentSeparators=true;
+				break;
 			}
 		}
-		int end = len;
-		// Trim trailing separators
-		if (!matchTheRest) {
-			while (end > 0 && path.charAt(end - 1) == separator) {
-				end--;
-			}
-		}
-
-		// Check if multiple separators embedded in the resulting path, if so trim them out.
-		// Example: aaa////bbb//ccc/d -> aaa/bbb/ccc/d
-		// The stringWithDuplicateSeparatorsRemoved is only computed if necessary
-		int c = pos;
-		StringBuilder stringWithDuplicateSeparatorsRemoved = null;
-		while (c < end) {
-			char ch = path.charAt(c);
-			if (ch == separator) {
-				if ((c + 1) < end && path.charAt(c + 1) == separator) {
-					// multiple separators
-					if (stringWithDuplicateSeparatorsRemoved == null) {
-						// first time seen, need to capture all data up to this point
-						stringWithDuplicateSeparatorsRemoved = new StringBuilder();
-						stringWithDuplicateSeparatorsRemoved.append(path.substring(pos, c));
-					}
-					do {
-						c++;
-					} while ((c + 1) < end && path.charAt(c + 1) == separator);
+		
+		PathContainer resultPath = null;
+		if (multipleAdjacentSeparators) {
+			// Need to rebuild the path without the duplicate adjacent separators
+			StringBuilder buf = new StringBuilder();
+			int i = startIndex;
+			while (i < endIndex) {
+				Element e = pathElements.get(i++);
+				buf.append(e.value());
+				if (e instanceof Separator) {
+					while (i < endIndex && (pathElements.get(i) instanceof Separator)) {
+						i++;
+					} 
 				}
 			}
-			if (stringWithDuplicateSeparatorsRemoved != null) {
-				stringWithDuplicateSeparatorsRemoved.append(ch);
-			}
-			c++;
+			resultPath = PathContainer.parsePath(buf.toString());
 		}
-
-		if (stringWithDuplicateSeparatorsRemoved != null) {
-			return stringWithDuplicateSeparatorsRemoved.toString();
+		else if (startIndex >= endIndex) {
+			resultPath = PathContainer.parsePath("");
 		}
-		return (pos == len ? "" : path.substring(pos, end));
+		else {
+			resultPath = path.subPath(startIndex, endIndex);
+		}
+		return resultPath;
 	}
-
 
 	/**
 	 * Compare this pattern with a supplied pattern: return -1,0,+1 if this pattern
@@ -379,7 +362,9 @@ public class PathPattern implements Comparable<PathPattern> {
 		// /hotels/* + /booking => /hotels/booking
 		// /hotels/* + booking => /hotels/booking
 		if (this.endsWithSeparatorWildcard) {
-			return parser.parse(concat(this.patternString.substring(0, this.patternString.length() - 2), pattern2string.patternString));
+			return parser.parse(concat(
+					this.patternString.substring(0, this.patternString.length() - 2),
+					pattern2string.patternString));
 		}
 
 		// /hotels + /booking => /hotels/booking
@@ -581,8 +566,6 @@ public class PathPattern implements Comparable<PathPattern> {
 
 		final int pathLength;
 
-		boolean isMatchStartMatching = false;
-
 		@Nullable
 		private Map<String, String> extractedUriVariables;
 
@@ -611,10 +594,6 @@ public class PathPattern implements Comparable<PathPattern> {
 
 		public boolean isMatchOptionalTrailingSeparator() {
 			return matchOptionalTrailingSeparator;
-		}
-
-		public void setMatchStartMatching(boolean b) {
-			isMatchStartMatching = b;
 		}
 
 		public void set(String key, String value, MultiValueMap<String,String> parameters) {
@@ -692,39 +671,32 @@ public class PathPattern implements Comparable<PathPattern> {
 	}
 
 
-	public static final Comparator<PathPattern> SPECIFICITY_COMPARATOR = (p1, p2) -> {
-		// 1) null is sorted last
-		if (p2 == null) {
-			return -1;
-		}
+	/**
+	 * Comparator that sorts patterns by specificity as follows:
+	 * <ol>
+	 * <li>Null instances are last.
+	 * <li>Catch-all patterns are last.
+	 * <li>If both patterns are catch-all, consider the length (longer wins).
+	 * <li>Compare wildcard and captured variable count (lower wins).
+	 * <li>Consider length (longer wins)
+	 * </ol>
+	 */
+	public static final Comparator<PathPattern> SPECIFICITY_COMPARATOR =
+			Comparator.nullsLast(
+					Comparator.<PathPattern>
+							comparingInt(p -> p.isCatchAll() ? 1 : 0)
+							.thenComparingInt(p -> p.isCatchAll() ? scoreByNormalizedLength(p) : 0)
+							.thenComparingInt(PathPattern::getScore)
+							.thenComparingInt(PathPattern::scoreByNormalizedLength)
+			);
 
-		// 2) catchall patterns are sorted last. If both catchall then the
-		// length is considered
-		if (p1.isCatchAll()) {
-			if (p2.isCatchAll()) {
-				int lenDifference = p1.getNormalizedLength() - p2.getNormalizedLength();
-				if (lenDifference != 0) {
-					return (lenDifference < 0) ? +1 : -1;
-				}
-			}
-			else {
-				return +1;
-			}
-		}
-		else if (p2.isCatchAll()) {
-			return -1;
-		}
-
-		// 3) This will sort such that if they differ in terms of wildcards or
-		// captured variable counts, the one with the most will be sorted last
-		int score = p1.getScore() - p2.getScore();
-		if (score != 0) {
-			return (score < 0) ? -1 : +1;
-		}
-
-		// 4) longer is better
-		int lenDifference = p1.getNormalizedLength() - p2.getNormalizedLength();
-		return Integer.compare(0, lenDifference);
-	};
+	private static int scoreByNormalizedLength(PathPattern pattern) {
+		return -pattern.getNormalizedLength();
+	}
+	
+	private boolean pathContainerIsJustSeparator(PathContainer pathContainer) {
+		return pathContainer.value().length() == 1 && 
+				pathContainer.value().charAt(0) == separator;
+	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 			new BufferedReader(new StringReader(""));
 
 	/**
-	 * Date formats as specified in the HTTP RFC
+	 * Date formats as specified in the HTTP RFC.
 	 * @see <a href="https://tools.ietf.org/html/rfc7231#section-7.1.1.1">Section 7.1.1.1 of RFC 7231</a>
 	 */
 	private static final String[] DATE_FORMATS = new String[] {
@@ -473,7 +473,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 					this.characterEncoding = mediaType.getCharset().name();
 				}
 			}
-			catch (Exception ex) {
+			catch (IllegalArgumentException ex) {
 				// Try to get charset value anyway
 				int charsetIndex = contentType.toLowerCase().indexOf(CHARSET_PREFIX);
 				if (charsetIndex != -1) {
@@ -526,8 +526,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	 */
 	public void setParameters(Map<String, ?> params) {
 		Assert.notNull(params, "Parameter map must not be null");
-		for (String key : params.keySet()) {
-			Object value = params.get(key);
+		params.forEach((key, value) -> {
 			if (value instanceof String) {
 				setParameter(key, (String) value);
 			}
@@ -538,7 +537,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 				throw new IllegalArgumentException(
 						"Parameter map value must be single value " + " or array of type [" + String.class.getName() + "]");
 			}
-		}
+		});
 	}
 
 	/**
@@ -570,14 +569,13 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	}
 
 	/**
-	 * Adds all provided parameters <strong>without</strong> replacing any
+	 * Add all provided parameters <strong>without</strong> replacing any
 	 * existing values. To replace existing values, use
 	 * {@link #setParameters(java.util.Map)}.
 	 */
 	public void addParameters(Map<String, ?> params) {
 		Assert.notNull(params, "Parameter map must not be null");
-		for (String key : params.keySet()) {
-			Object value = params.get(key);
+		params.forEach((key, value) -> {
 			if (value instanceof String) {
 				addParameter(key, (String) value);
 			}
@@ -588,7 +586,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 				throw new IllegalArgumentException("Parameter map value must be single value " +
 						" or array of type [" + String.class.getName() + "]");
 			}
-		}
+		});
 	}
 
 	/**
@@ -600,7 +598,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	}
 
 	/**
-	 * Removes all existing parameters.
+	 * Remove all existing parameters.
 	 */
 	public void removeAllParameters() {
 		this.parameters.clear();
@@ -766,8 +764,8 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	/**
 	 * Set the list of preferred locales, in descending order, effectively replacing
 	 * any existing locales.
-	 * @see #addPreferredLocale
 	 * @since 3.2
+	 * @see #addPreferredLocale
 	 */
 	public void setPreferredLocales(List<Locale> locales) {
 		Assert.notEmpty(locales, "Locale list must not be empty");
@@ -968,9 +966,9 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	}
 
 	/**
-	 * Add a header entry for the given name.
-	 * <p>While this method can take any {@code Object} as a parameter, it
-	 * is recommended to use the following types:
+	 * Add an HTTP header entry for the given name.
+	 * <p>While this method can take any {@code Object} as a parameter,
+	 * it is recommended to use the following types:
 	 * <ul>
 	 * <li>String or any Object to be converted using {@code toString()}; see {@link #getHeader}.</li>
 	 * <li>String, Number, or Date for date headers; see {@link #getDateHeader}.</li>
@@ -985,15 +983,21 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	public void addHeader(String name, Object value) {
 		if (HttpHeaders.CONTENT_TYPE.equalsIgnoreCase(name) &&
 				!this.headers.containsKey(HttpHeaders.CONTENT_TYPE)) {
-
 			setContentType(value.toString());
 		}
 		else if (HttpHeaders.ACCEPT_LANGUAGE.equalsIgnoreCase(name) &&
 				!this.headers.containsKey(HttpHeaders.ACCEPT_LANGUAGE)) {
-
-			HttpHeaders headers = new HttpHeaders();
-			headers.add(HttpHeaders.ACCEPT_LANGUAGE, value.toString());
-			setPreferredLocales(headers.getAcceptLanguageAsLocales());
+			try {
+				HttpHeaders headers = new HttpHeaders();
+				headers.add(HttpHeaders.ACCEPT_LANGUAGE, value.toString());
+				List<Locale> locales = headers.getAcceptLanguageAsLocales();
+				this.locales.clear();
+				this.locales.addAll(locales);
+			}
+			catch (IllegalArgumentException ex) {
+				// Invalid Accept-Language format -> just store plain header
+			}
+			doAddHeaderValue(name, value, true);
 		}
 		else {
 			doAddHeaderValue(name, value, false);
@@ -1016,6 +1020,15 @@ public class MockHttpServletRequest implements HttpServletRequest {
 		else {
 			header.addValue(value);
 		}
+	}
+
+	/**
+	 * Remove already registered entries for the specified HTTP header, if any.
+	 * @since 4.3.20
+	 */
+	public void removeHeader(String name) {
+		Assert.notNull(name, "Header name must not be null");
+		this.headers.remove(name);
 	}
 
 	/**
@@ -1199,13 +1212,18 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public StringBuffer getRequestURL() {
-		StringBuffer url = new StringBuffer(this.scheme).append("://").append(this.serverName);
-		if (this.serverPort > 0 && ((HTTP.equalsIgnoreCase(this.scheme) && this.serverPort != 80) ||
-				(HTTPS.equalsIgnoreCase(this.scheme) && this.serverPort != 443))) {
-			url.append(':').append(this.serverPort);
+		String scheme = getScheme();
+		String server = getServerName();
+		int port = getServerPort();
+		String uri = getRequestURI();
+
+		StringBuffer url = new StringBuffer(scheme).append("://").append(server);
+		if (port > 0 && ((HTTP.equalsIgnoreCase(scheme) && port != 80) ||
+				(HTTPS.equalsIgnoreCase(scheme) && port != 443))) {
+			url.append(':').append(port);
 		}
-		if (StringUtils.hasText(getRequestURI())) {
-			url.append(getRequestURI());
+		if (StringUtils.hasText(uri)) {
+			url.append(uri);
 		}
 		return url;
 	}
@@ -1257,7 +1275,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	public String changeSessionId() {
 		Assert.isTrue(this.session != null, "The request does not have a session");
 		if (this.session instanceof MockHttpSession) {
-			return ((MockHttpSession) session).changeSessionId();
+			return ((MockHttpSession) this.session).changeSessionId();
 		}
 		return this.session.getId();
 	}
@@ -1318,12 +1336,12 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	@Nullable
-	public Part getPart(String name) throws IOException, IllegalStateException, ServletException {
+	public Part getPart(String name) throws IOException, ServletException {
 		return this.parts.getFirst(name);
 	}
 
 	@Override
-	public Collection<Part> getParts() throws IOException, IllegalStateException, ServletException {
+	public Collection<Part> getParts() throws IOException, ServletException {
 		List<Part> result = new LinkedList<>();
 		for (List<Part> list : this.parts.values()) {
 			result.addAll(list);

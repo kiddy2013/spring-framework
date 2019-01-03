@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -259,7 +259,7 @@ public class ServletInvocableHandlerMethod extends InvocableHandlerMethod {
 			this.returnValue = returnValue;
 			this.returnType = (returnValue instanceof ReactiveTypeHandler.CollectedValuesList ?
 					((ReactiveTypeHandler.CollectedValuesList) returnValue).getReturnType() :
-					ResolvableType.forType(super.getGenericParameterType()).getGeneric(0));
+					ResolvableType.forType(super.getGenericParameterType()).getGeneric());
 		}
 
 		public ConcurrentResultMethodParameter(ConcurrentResultMethodParameter original) {
@@ -286,13 +286,11 @@ public class ServletInvocableHandlerMethod extends InvocableHandlerMethod {
 
 		@Override
 		public <T extends Annotation> boolean hasMethodAnnotation(Class<T> annotationType) {
-
 			// Ensure @ResponseBody-style handling for values collected from a reactive type
 			// even if actual return type is ResponseEntity<Flux<T>>
-
-			return ResponseBody.class.equals(annotationType) &&
-					this.returnValue instanceof ReactiveTypeHandler.CollectedValuesList ||
-					super.hasMethodAnnotation(annotationType);
+			return (super.hasMethodAnnotation(annotationType) ||
+					(annotationType == ResponseBody.class &&
+							this.returnValue instanceof ReactiveTypeHandler.CollectedValuesList));
 		}
 
 		@Override

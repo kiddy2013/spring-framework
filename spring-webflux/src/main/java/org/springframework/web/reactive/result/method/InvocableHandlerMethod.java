@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package org.springframework.web.reactive.result.method;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -31,7 +33,10 @@ import reactor.core.publisher.Mono;
 import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ParameterNameDiscoverer;
+import org.springframework.core.ReactiveAdapter;
+import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
@@ -60,6 +65,8 @@ public class InvocableHandlerMethod extends HandlerMethod {
 	private List<HandlerMethodArgumentResolver> resolvers = new ArrayList<>();
 
 	private ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
+
+	private ReactiveAdapterRegistry reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
 
 
 	public InvocableHandlerMethod(HandlerMethod handlerMethod) {
@@ -103,25 +110,47 @@ public class InvocableHandlerMethod extends HandlerMethod {
 		return this.parameterNameDiscoverer;
 	}
 
+	/**
+	 * Configure a reactive registry. This is needed for cases where the response
+	 * is fully handled within the controller in combination with an async void
+	 * return value.
+	 * <p>By default this is an instance of {@link ReactiveAdapterRegistry} with
+	 * default settings.
+	 * @param registry the registry to use
+	 */
+	public void setReactiveAdapterRegistry(ReactiveAdapterRegistry registry) {
+		this.reactiveAdapterRegistry = registry;
+	}
+
 
 	/**
 	 * Invoke the method for the given exchange.
 	 * @param exchange the current exchange
 	 * @param bindingContext the binding context to use
 	 * @param providedArgs optional list of argument values to match by type
-	 * @return Mono with a {@link HandlerResult}.
+	 * @return a Mono with a {@link HandlerResult}.
 	 */
-	public Mono<HandlerResult> invoke(ServerWebExchange exchange, BindingContext bindingContext,
-			Object... providedArgs) {
+	public Mono<HandlerResult> invoke(
+			ServerWebExchange exchange, BindingContext bindingContext, Object... providedArgs) {
 
 		return resolveArguments(exchange, bindingContext, providedArgs).flatMap(args -> {
 			try {
 				Object value = doInvoke(args);
-				HandlerResult result = new HandlerResult(this, value, getReturnType(), bindingContext);
+
 				HttpStatus status = getResponseStatus();
 				if (status != null) {
 					exchange.getResponse().setStatusCode(status);
 				}
+
+				MethodParameter returnType = getReturnType();
+				ReactiveAdapter adapter = this.reactiveAdapterRegistry.getAdapter(returnType.getParameterType());
+				boolean asyncVoid = isAsyncVoidReturnType(returnType, adapter);
+				if ((value == null || asyncVoid) && isResponseHandled(args, exchange)) {
+					logger.debug("Response fully handled in controller method");
+					return asyncVoid ? Mono.from(adapter.toPublisher(value)) : Mono.empty();
+				}
+
+				HandlerResult result = new HandlerResult(this, value, returnType, bindingContext);
 				return Mono.just(result);
 			}
 			catch (InvocationTargetException ex) {
@@ -133,8 +162,8 @@ public class InvocableHandlerMethod extends HandlerMethod {
 		});
 	}
 
-	private Mono<Object[]> resolveArguments(ServerWebExchange exchange, BindingContext bindingContext,
-			Object... providedArgs) {
+	private Mono<Object[]> resolveArguments(
+			ServerWebExchange exchange, BindingContext bindingContext, Object... providedArgs) {
 
 		if (ObjectUtils.isEmpty(getMethodParameters())) {
 			return EMPTY_ARGS;
@@ -154,7 +183,7 @@ public class InvocableHandlerMethod extends HandlerMethod {
 					.collect(Collectors.toList());
 
 			// Create Mono with array of resolved values...
-			return Mono.when(argMonos, argValues ->
+			return Mono.zip(argMonos, argValues ->
 					Stream.of(argValues).map(o -> o != NO_ARG_VALUE ? o : null).toArray());
 		}
 		catch (Throwable ex) {
@@ -204,6 +233,7 @@ public class InvocableHandlerMethod extends HandlerMethod {
 				param.getParameterType().getName() + "' on " + getBridgedMethod().toGenericString();
 	}
 
+	@Nullable
 	private Object doInvoke(Object[] args) throws Exception {
 		if (logger.isTraceEnabled()) {
 			logger.trace("Invoking '" + ClassUtils.getQualifiedMethodName(getMethod(), getBeanType()) +
@@ -226,6 +256,36 @@ public class InvocableHandlerMethod extends HandlerMethod {
 				.collect(Collectors.joining(",", " ", " "));
 		return "Failed to invoke handler method with resolved arguments:" + argumentDetails +
 				"on " + getBridgedMethod().toGenericString();
+	}
+
+	private boolean isAsyncVoidReturnType(MethodParameter returnType,
+			@Nullable ReactiveAdapter reactiveAdapter) {
+
+		if (reactiveAdapter != null && reactiveAdapter.supportsEmpty()) {
+			if (reactiveAdapter.isNoValue()) {
+				return true;
+			}
+			Type parameterType = returnType.getGenericParameterType();
+			if (parameterType instanceof ParameterizedType) {
+				ParameterizedType type = (ParameterizedType) parameterType;
+				if (type.getActualTypeArguments().length == 1) {
+					return Void.class.equals(type.getActualTypeArguments()[0]);
+				}
+			}
+		}
+		return false;
+	}
+
+	private boolean isResponseHandled(Object[] args, ServerWebExchange exchange) {
+		if (getResponseStatus() != null || exchange.isNotModified()) {
+			return true;
+		}
+		for (Object arg : args) {
+			if (arg instanceof ServerHttpResponse || arg instanceof ServerWebExchange) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 }

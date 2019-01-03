@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.springframework.beans.factory;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.FatalBeanException;
@@ -135,7 +135,7 @@ public class BeanCreationException extends FatalBeanException {
 	 */
 	public void addRelatedCause(Throwable ex) {
 		if (this.relatedCauses == null) {
-			this.relatedCauses = new LinkedList<>();
+			this.relatedCauses = new ArrayList<>();
 		}
 		this.relatedCauses.add(ex);
 	}
@@ -149,7 +149,7 @@ public class BeanCreationException extends FatalBeanException {
 		if (this.relatedCauses == null) {
 			return null;
 		}
-		return this.relatedCauses.toArray(new Throwable[this.relatedCauses.size()]);
+		return this.relatedCauses.toArray(new Throwable[0]);
 	}
 
 

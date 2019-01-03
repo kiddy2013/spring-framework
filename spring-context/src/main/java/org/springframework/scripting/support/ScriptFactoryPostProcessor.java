@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.springframework.scripting.support;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 import org.apache.commons.logging.Log;
@@ -39,7 +38,6 @@ import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.beans.factory.config.InstantiationAwareBeanPostProcessorAdapter;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
@@ -138,8 +136,8 @@ import org.springframework.util.StringUtils;
  * @author Mark Fisher
  * @since 2.0
  */
-public class ScriptFactoryPostProcessor extends InstantiationAwareBeanPostProcessorAdapter implements
-		BeanClassLoaderAware, BeanFactoryAware, ResourceLoaderAware, DisposableBean, Ordered {
+public class ScriptFactoryPostProcessor extends InstantiationAwareBeanPostProcessorAdapter
+		implements BeanClassLoaderAware, BeanFactoryAware, ResourceLoaderAware, DisposableBean, Ordered {
 
 	/**
 	 * The {@link org.springframework.core.io.Resource}-style prefix that denotes
@@ -225,11 +223,8 @@ public class ScriptFactoryPostProcessor extends InstantiationAwareBeanPostProces
 
 		// Filter out BeanPostProcessors that are part of the AOP infrastructure,
 		// since those are only meant to apply to beans defined in the original factory.
-		for (Iterator<BeanPostProcessor> it = this.scriptBeanFactory.getBeanPostProcessors().iterator(); it.hasNext();) {
-			if (it.next() instanceof AopInfrastructureBean) {
-				it.remove();
-			}
-		}
+		this.scriptBeanFactory.getBeanPostProcessors().removeIf(beanPostProcessor ->
+				beanPostProcessor instanceof AopInfrastructureBean);
 	}
 
 	@Override
@@ -244,6 +239,7 @@ public class ScriptFactoryPostProcessor extends InstantiationAwareBeanPostProces
 
 
 	@Override
+	@Nullable
 	public Class<?> predictBeanType(Class<?> beanClass, String beanName) {
 		// We only apply special treatment to ScriptFactory implementations here.
 		if (!ScriptFactory.class.isAssignableFrom(beanClass)) {
@@ -279,8 +275,8 @@ public class ScriptFactoryPostProcessor extends InstantiationAwareBeanPostProces
 			if (ex instanceof BeanCreationException &&
 					((BeanCreationException) ex).getMostSpecificCause() instanceof BeanCurrentlyInCreationException) {
 				if (logger.isTraceEnabled()) {
-					logger.trace("Could not determine scripted object type for bean '" + beanName + "': "
-							+ ex.getMessage());
+					logger.trace("Could not determine scripted object type for bean '" + beanName + "': " +
+							ex.getMessage());
 				}
 			}
 			else {

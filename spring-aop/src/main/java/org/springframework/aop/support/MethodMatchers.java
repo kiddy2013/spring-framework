@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,8 +90,8 @@ public abstract class MethodMatchers {
 	 */
 	public static boolean matches(MethodMatcher mm, Method method, @Nullable Class<?> targetClass, boolean hasIntroductions) {
 		Assert.notNull(mm, "MethodMatcher must not be null");
-		return ((mm instanceof IntroductionAwareMethodMatcher &&
-				((IntroductionAwareMethodMatcher) mm).matches(method, targetClass, hasIntroductions)) ||
+		return (mm instanceof IntroductionAwareMethodMatcher ?
+				((IntroductionAwareMethodMatcher) mm).matches(method, targetClass, hasIntroductions) :
 				mm.matches(method, targetClass));
 	}
 
@@ -144,23 +144,20 @@ public abstract class MethodMatchers {
 		}
 
 		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
+		public boolean equals(Object other) {
+			if (this == other) {
 				return true;
 			}
-			if (!(obj instanceof UnionMethodMatcher)) {
+			if (!(other instanceof UnionMethodMatcher)) {
 				return false;
 			}
-			UnionMethodMatcher that = (UnionMethodMatcher) obj;
+			UnionMethodMatcher that = (UnionMethodMatcher) other;
 			return (this.mm1.equals(that.mm1) && this.mm2.equals(that.mm2));
 		}
 
 		@Override
 		public int hashCode() {
-			int hashCode = 17;
-			hashCode = 37 * hashCode + this.mm1.hashCode();
-			hashCode = 37 * hashCode + this.mm2.hashCode();
-			return hashCode;
+			return 37 * this.mm1.hashCode() + this.mm2.hashCode();
 		}
 	}
 
@@ -209,6 +206,12 @@ public abstract class MethodMatchers {
 			}
 			return (this.cf1.equals(otherCf1) && this.cf2.equals(otherCf2));
 		}
+
+		@Override
+		public int hashCode() {
+			// Allow for matching with regular UnionMethodMatcher by providing same hash...
+			return super.hashCode();
+		}
 	}
 
 
@@ -231,18 +234,18 @@ public abstract class MethodMatchers {
 
 		@Override
 		public boolean matches(Method method, @Nullable Class<?> targetClass, boolean hasIntroductions) {
-			return MethodMatchers.matches(this.mm1, method, targetClass, hasIntroductions) &&
-					MethodMatchers.matches(this.mm2, method, targetClass, hasIntroductions);
+			return (MethodMatchers.matches(this.mm1, method, targetClass, hasIntroductions) &&
+					MethodMatchers.matches(this.mm2, method, targetClass, hasIntroductions));
 		}
 
 		@Override
 		public boolean matches(Method method, @Nullable Class<?> targetClass) {
-			return this.mm1.matches(method, targetClass) && this.mm2.matches(method, targetClass);
+			return (this.mm1.matches(method, targetClass) && this.mm2.matches(method, targetClass));
 		}
 
 		@Override
 		public boolean isRuntime() {
-			return this.mm1.isRuntime() || this.mm2.isRuntime();
+			return (this.mm1.isRuntime() || this.mm2.isRuntime());
 		}
 
 		@Override
@@ -250,10 +253,10 @@ public abstract class MethodMatchers {
 			// Because a dynamic intersection may be composed of a static and dynamic part,
 			// we must avoid calling the 3-arg matches method on a dynamic matcher, as
 			// it will probably be an unsupported operation.
-			boolean aMatches = this.mm1.isRuntime() ?
-					this.mm1.matches(method, targetClass, args) : this.mm1.matches(method, targetClass);
-			boolean bMatches = this.mm2.isRuntime() ?
-					this.mm2.matches(method, targetClass, args) : this.mm2.matches(method, targetClass);
+			boolean aMatches = (this.mm1.isRuntime() ?
+					this.mm1.matches(method, targetClass, args) : this.mm1.matches(method, targetClass));
+			boolean bMatches = (this.mm2.isRuntime() ?
+					this.mm2.matches(method, targetClass, args) : this.mm2.matches(method, targetClass));
 			return aMatches && bMatches;
 		}
 
@@ -271,10 +274,7 @@ public abstract class MethodMatchers {
 
 		@Override
 		public int hashCode() {
-			int hashCode = 17;
-			hashCode = 37 * hashCode + this.mm1.hashCode();
-			hashCode = 37 * hashCode + this.mm2.hashCode();
-			return hashCode;
+			return 37 * this.mm1.hashCode() + this.mm2.hashCode();
 		}
 	}
 

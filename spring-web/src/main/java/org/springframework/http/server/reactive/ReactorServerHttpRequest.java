@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,12 @@ package org.springframework.http.server.reactive;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import javax.net.ssl.SSLSession;
 
+import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.cookie.Cookie;
+import io.netty.handler.ssl.SslHandler;
 import reactor.core.publisher.Flux;
 import reactor.ipc.netty.http.server.HttpServerRequest;
 
@@ -29,6 +32,7 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpHeaders;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -40,7 +44,7 @@ import org.springframework.util.MultiValueMap;
  * @author Rossen Stoyanchev
  * @since 5.0
  */
-public class ReactorServerHttpRequest extends AbstractServerHttpRequest {
+class ReactorServerHttpRequest extends AbstractServerHttpRequest {
 
 	private final HttpServerRequest request;
 
@@ -51,44 +55,73 @@ public class ReactorServerHttpRequest extends AbstractServerHttpRequest {
 			throws URISyntaxException {
 
 		super(initUri(request), "", initHeaders(request));
-		Assert.notNull(bufferFactory, "'bufferFactory' must not be null");
+		Assert.notNull(bufferFactory, "DataBufferFactory must not be null");
 		this.request = request;
 		this.bufferFactory = bufferFactory;
 	}
 
 	private static URI initUri(HttpServerRequest request) throws URISyntaxException {
-		Assert.notNull(request, "'request' must not be null");
-		URI baseUri = resolveBaseUrl(request);
-		String requestUri = request.uri();
-		return (baseUri != null ? new URI(baseUri.toString() + requestUri) : new URI(requestUri));
+		Assert.notNull(request, "HttpServerRequest must not be null");
+		return new URI(resolveBaseUrl(request).toString() + resolveRequestUri(request));
 	}
 
 	private static URI resolveBaseUrl(HttpServerRequest request) throws URISyntaxException {
+		String scheme = getScheme(request);
 		String header = request.requestHeaders().get(HttpHeaderNames.HOST);
 		if (header != null) {
 			final int portIndex;
 			if (header.startsWith("[")) {
 				portIndex = header.indexOf(':', header.indexOf(']'));
-			} else {
+			}
+			else {
 				portIndex = header.indexOf(':');
 			}
 			if (portIndex != -1) {
 				try {
-					return new URI(null, null, header.substring(0, portIndex),
+					return new URI(scheme, null, header.substring(0, portIndex),
 							Integer.parseInt(header.substring(portIndex + 1)), null, null, null);
-				} catch (NumberFormatException ignore) {
+				}
+				catch (NumberFormatException ex) {
 					throw new URISyntaxException(header, "Unable to parse port", portIndex);
 				}
 			}
 			else {
-				return new URI(null, header, null, null);
+				return new URI(scheme, header, null, null);
 			}
 		}
 		else {
 			InetSocketAddress localAddress = (InetSocketAddress) request.context().channel().localAddress();
-			return new URI(null, null, localAddress.getHostString(),
+			return new URI(scheme, null, localAddress.getHostString(),
 					localAddress.getPort(), null, null, null);
 		}
+	}
+
+	private static String getScheme(HttpServerRequest request) {
+		ChannelPipeline pipeline = request.context().channel().pipeline();
+		boolean ssl = pipeline.get(SslHandler.class) != null;
+		return ssl ? "https" : "http";
+	}
+
+	private static String resolveRequestUri(HttpServerRequest request) {
+		String uri = request.uri();
+		for (int i = 0; i < uri.length(); i++) {
+			char c = uri.charAt(i);
+			if (c == '/' || c == '?' || c == '#') {
+				break;
+			}
+			if (c == ':' && (i + 2 < uri.length())) {
+				if (uri.charAt(i + 1) == '/' && uri.charAt(i + 2) == '/') {
+					for (int j = i + 3; j < uri.length(); j++) {
+						c = uri.charAt(j);
+						if (c == '/' || c == '?' || c == '#') {
+							return uri.substring(j);
+						}
+					}
+					return "";
+				}
+			}
+		}
+		return uri;
 	}
 
 	private static HttpHeaders initHeaders(HttpServerRequest channel) {
@@ -99,10 +132,6 @@ public class ReactorServerHttpRequest extends AbstractServerHttpRequest {
 		return headers;
 	}
 
-
-	public HttpServerRequest getReactorRequest() {
-		return this.request;
-	}
 
 	@Override
 	public String getMethodValue() {
@@ -126,9 +155,30 @@ public class ReactorServerHttpRequest extends AbstractServerHttpRequest {
 		return this.request.remoteAddress();
 	}
 
+	@Nullable
+	protected SslInfo initSslInfo() {
+		SslHandler sslHandler = this.request.context().channel().pipeline().get(SslHandler.class);
+		if (sslHandler != null) {
+			SSLSession session = sslHandler.engine().getSession();
+			return new DefaultSslInfo(session);
+		}
+		return null;
+	}
+
 	@Override
 	public Flux<DataBuffer> getBody() {
-		return this.request.receive().retain().map(this.bufferFactory::wrap);
+		// 5.0.x only: do not retain, make a copy..
+		return this.request.receive().map(byteBuf -> {
+			byte[] data = new byte[byteBuf.readableBytes()];
+			byteBuf.readBytes(data);
+			return bufferFactory.wrap(data);
+		});
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public <T> T getNativeRequest() {
+		return (T) this.request;
 	}
 
 }

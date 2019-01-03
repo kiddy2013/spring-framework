@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,6 @@ import org.springframework.http.converter.support.AllEncompassingFormHttpMessage
 import org.springframework.http.converter.xml.SourceHttpMessageConverter;
 import org.springframework.lang.Nullable;
 import org.springframework.ui.ModelMap;
-import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ReflectionUtils.MethodFilter;
 import org.springframework.web.accept.ContentNegotiationManager;
@@ -98,13 +97,12 @@ import org.springframework.web.servlet.support.RequestContextUtils;
 import org.springframework.web.util.WebUtils;
 
 /**
- * An {@link AbstractHandlerMethodAdapter} that supports {@link HandlerMethod}s
- * with their method argument and return type signature, as defined via
- * {@code @RequestMapping}.
+ * Extension of {@link AbstractHandlerMethodAdapter} that supports
+ * {@link RequestMapping} annotated {@code HandlerMethod}s.
  *
  * <p>Support for custom argument and return value types can be added via
- * {@link #setCustomArgumentResolvers} and {@link #setCustomReturnValueHandlers}.
- * Or alternatively, to re-configure all argument and return value types,
+ * {@link #setCustomArgumentResolvers} and {@link #setCustomReturnValueHandlers},
+ * or alternatively, to re-configure all argument and return value types,
  * use {@link #setArgumentResolvers} and {@link #setReturnValueHandlers}.
  *
  * @author Rossen Stoyanchev
@@ -115,6 +113,20 @@ import org.springframework.web.util.WebUtils;
  */
 public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		implements BeanFactoryAware, InitializingBean {
+
+	/**
+	 * MethodFilter that matches {@link InitBinder @InitBinder} methods.
+	 */
+	public static final MethodFilter INIT_BINDER_METHODS = method ->
+			(AnnotationUtils.findAnnotation(method, InitBinder.class) != null);
+
+	/**
+	 * MethodFilter that matches {@link ModelAttribute @ModelAttribute} methods.
+	 */
+	public static final MethodFilter MODEL_ATTRIBUTE_METHODS = method ->
+			(AnnotationUtils.findAnnotation(method, RequestMapping.class) == null &&
+					AnnotationUtils.findAnnotation(method, ModelAttribute.class) != null);
+
 
 	@Nullable
 	private List<HandlerMethodArgumentResolver> customArgumentResolvers;
@@ -152,7 +164,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 
 	private DeferredResultProcessingInterceptor[] deferredResultInterceptors = new DeferredResultProcessingInterceptor[0];
 
-	private ReactiveAdapterRegistry reactiveRegistry = new ReactiveAdapterRegistry();
+	private ReactiveAdapterRegistry reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
 
 	private boolean ignoreDefaultModelOnRedirect = false;
 
@@ -250,7 +262,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 */
 	@Nullable
 	public List<HandlerMethodArgumentResolver> getInitBinderArgumentResolvers() {
-		return (this.initBinderArgumentResolvers != null) ? this.initBinderArgumentResolvers.getResolvers() : null;
+		return (this.initBinderArgumentResolvers != null ? this.initBinderArgumentResolvers.getResolvers() : null);
 	}
 
 	/**
@@ -411,8 +423,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * @param interceptors the interceptors to register
 	 */
 	public void setCallableInterceptors(List<CallableProcessingInterceptor> interceptors) {
-		Assert.notNull(interceptors, "CallableProcessingInterceptor List must not be null");
-		this.callableInterceptors = interceptors.toArray(new CallableProcessingInterceptor[interceptors.size()]);
+		this.callableInterceptors = interceptors.toArray(new CallableProcessingInterceptor[0]);
 	}
 
 	/**
@@ -420,24 +431,35 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * @param interceptors the interceptors to register
 	 */
 	public void setDeferredResultInterceptors(List<DeferredResultProcessingInterceptor> interceptors) {
-		Assert.notNull(interceptors, "DeferredResultProcessingInterceptor List must not be null");
-		this.deferredResultInterceptors = interceptors.toArray(new DeferredResultProcessingInterceptor[interceptors.size()]);
+		this.deferredResultInterceptors = interceptors.toArray(new DeferredResultProcessingInterceptor[0]);
 	}
 
 	/**
 	 * Configure the registry for reactive library types to be supported as
 	 * return values from controller methods.
+	 * @since 5.0
+	 * @deprecated as of 5.0.5, in favor of {@link #setReactiveAdapterRegistry}
 	 */
+	@Deprecated
 	public void setReactiveRegistry(ReactiveAdapterRegistry reactiveRegistry) {
-		Assert.notNull(reactiveRegistry, "ReactiveAdapterRegistry is required");
-		this.reactiveRegistry = this.reactiveRegistry;
+		this.reactiveAdapterRegistry = reactiveRegistry;
+	}
+
+	/**
+	 * Configure the registry for reactive library types to be supported as
+	 * return values from controller methods.
+	 * @since 5.0.5
+	 */
+	public void setReactiveAdapterRegistry(ReactiveAdapterRegistry reactiveAdapterRegistry) {
+		this.reactiveAdapterRegistry = reactiveAdapterRegistry;
 	}
 
 	/**
 	 * Return the configured reactive type registry of adapters.
+	 * @since 5.0
 	 */
 	public ReactiveAdapterRegistry getReactiveAdapterRegistry() {
-		return this.reactiveRegistry;
+		return this.reactiveAdapterRegistry;
 	}
 
 	/**
@@ -701,7 +723,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		handlers.add(new ModelMethodProcessor());
 		handlers.add(new ViewMethodReturnValueHandler());
 		handlers.add(new ResponseBodyEmitterReturnValueHandler(getMessageConverters(),
-				this.reactiveRegistry, this.taskExecutor, this.contentNegotiationManager));
+				this.reactiveAdapterRegistry, this.taskExecutor, this.contentNegotiationManager));
 		handlers.add(new StreamingResponseBodyReturnValueHandler());
 		handlers.add(new HttpEntityMethodProcessor(getMessageConverters(),
 				this.contentNegotiationManager, this.requestResponseBodyAdvice));
@@ -993,19 +1015,5 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		}
 		return mav;
 	}
-
-
-	/**
-	 * MethodFilter that matches {@link InitBinder @InitBinder} methods.
-	 */
-	public static final MethodFilter INIT_BINDER_METHODS = method ->
-			AnnotationUtils.findAnnotation(method, InitBinder.class) != null;
-
-	/**
-	 * MethodFilter that matches {@link ModelAttribute @ModelAttribute} methods.
-	 */
-	public static final MethodFilter MODEL_ATTRIBUTE_METHODS = method ->
-			((AnnotationUtils.findAnnotation(method, RequestMapping.class) == null) &&
-			(AnnotationUtils.findAnnotation(method, ModelAttribute.class) != null));
 
 }

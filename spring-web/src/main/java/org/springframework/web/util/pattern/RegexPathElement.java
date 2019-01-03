@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -136,7 +136,7 @@ class RegexPathElement extends PathElement {
 		if (matches) {
 			if (isNoMorePattern()) {
 				if (matchingContext.determineRemainingPath && 
-					((this.variableNames.size() == 0) ? true : textToMatch.length() > 0)) {
+					(this.variableNames.isEmpty() ? true : textToMatch.length() > 0)) {
 					matchingContext.remainingPathIndex = pathIndex + 1;
 					matches = true;
 				}
@@ -153,9 +153,6 @@ class RegexPathElement extends PathElement {
 				}
 			}
 			else {
-				if (matchingContext.isMatchStartMatching && (pathIndex + 1 >= matchingContext.pathLength)) {
-					return true;  // no more data but matches up to this point
-				}
 				matches = (this.next != null && this.next.matches(pathIndex + 1, matchingContext));
 			}
 		}
@@ -189,6 +186,7 @@ class RegexPathElement extends PathElement {
 		return (this.regex.length - varsLength - this.variableNames.size());
 	}
 
+	@Override
 	public int getCaptureCount() {
 		return this.variableNames.size();
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package org.springframework.web.reactive.resource;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,20 +83,11 @@ public class ResourceUrlProvider implements ApplicationListener<ContextRefreshed
 		});
 	}
 
-	private static String prependLeadingSlash(String pattern) {
-		if (StringUtils.hasLength(pattern) && !pattern.startsWith("/")) {
-			return "/" + pattern;
-		}
-		else {
-			return pattern;
-		}
-	}
-
 	@Override
 	public void onApplicationEvent(ContextRefreshedEvent event) {
 		if (this.handlerMap.isEmpty()) {
 			detectResourceHandlers(event.getApplicationContext());
-			if(logger.isDebugEnabled()) {
+			if (logger.isDebugEnabled()) {
 				logger.debug("No resource handling mappings found");
 			}
 		}
@@ -106,11 +96,11 @@ public class ResourceUrlProvider implements ApplicationListener<ContextRefreshed
 	private void detectResourceHandlers(ApplicationContext context) {
 		logger.debug("Looking for resource handler mappings");
 
-		Map<String, SimpleUrlHandlerMapping> map = context.getBeansOfType(SimpleUrlHandlerMapping.class);
-		List<SimpleUrlHandlerMapping> mappings = new ArrayList<>(map.values());
+		Map<String, SimpleUrlHandlerMapping> beans = context.getBeansOfType(SimpleUrlHandlerMapping.class);
+		List<SimpleUrlHandlerMapping> mappings = new ArrayList<>(beans.values());
 		AnnotationAwareOrderComparator.sort(mappings);
 
-		mappings.forEach(mapping -> {
+		mappings.forEach(mapping ->
 			mapping.getHandlerMap().forEach((pattern, handler) -> {
 				if (handler instanceof ResourceWebHandler) {
 					ResourceWebHandler resourceHandler = (ResourceWebHandler) handler;
@@ -121,8 +111,7 @@ public class ResourceUrlProvider implements ApplicationListener<ContextRefreshed
 					}
 					this.handlerMap.put(pattern, resourceHandler);
 				}
-			});
-		});
+			}));
 	}
 
 
@@ -143,6 +132,7 @@ public class ResourceUrlProvider implements ApplicationListener<ContextRefreshed
 		String lookupPath = uriString.substring(0, queryIndex);
 		String query = uriString.substring(queryIndex);
 		PathContainer parsedLookupPath = PathContainer.parsePath(lookupPath);
+
 		if (logger.isTraceEnabled()) {
 			logger.trace("Getting resource URL for lookup path \"" + lookupPath + "\"");
 		}
@@ -152,11 +142,11 @@ public class ResourceUrlProvider implements ApplicationListener<ContextRefreshed
 
 	private int getQueryIndex(String path) {
 		int suffixIndex = path.length();
-		int queryIndex = path.indexOf("?");
+		int queryIndex = path.indexOf('?');
 		if (queryIndex > 0) {
 			suffixIndex = queryIndex;
 		}
-		int hashIndex = path.indexOf("#");
+		int hashIndex = path.indexOf('#');
 		if (hashIndex > 0) {
 			suffixIndex = Math.min(suffixIndex, hashIndex);
 		}
@@ -174,8 +164,7 @@ public class ResourceUrlProvider implements ApplicationListener<ContextRefreshed
 					int endIndex = lookupPath.elements().size() - path.elements().size();
 					PathContainer mapping = lookupPath.subPath(0, endIndex);
 					if (logger.isTraceEnabled()) {
-						logger.trace("Invoking ResourceResolverChain for URL pattern " +
-								"\"" + entry.getKey() + "\"");
+						logger.trace("Invoking ResourceResolverChain for URL pattern \"" + entry.getKey() + "\"");
 					}
 					ResourceWebHandler handler = entry.getValue();
 					List<ResourceResolver> resolvers = handler.getResourceResolvers();
@@ -187,9 +176,18 @@ public class ResourceUrlProvider implements ApplicationListener<ContextRefreshed
 								}
 								return mapping.value() + resolvedPath;
 							});
-
 				})
 				.orElse(Mono.empty());
+	}
+
+
+	private static String prependLeadingSlash(String pattern) {
+		if (StringUtils.hasLength(pattern) && !pattern.startsWith("/")) {
+			return "/" + pattern;
+		}
+		else {
+			return pattern;
+		}
 	}
 
 }

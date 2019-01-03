@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,8 +45,7 @@ import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
 /**
- * Register {@link EventListener} annotated method as individual {@link ApplicationListener}
- * instances.
+ * Registers {@link EventListener} methods as individual {@link ApplicationListener} instances.
  *
  * @author Stephane Nicoll
  * @author Juergen Hoeller
@@ -129,9 +128,9 @@ public class EventListenerMethodProcessor implements SmartInitializingSingleton,
 	 */
 	protected List<EventListenerFactory> getEventListenerFactories() {
 		Map<String, EventListenerFactory> beans = getApplicationContext().getBeansOfType(EventListenerFactory.class);
-		List<EventListenerFactory> allFactories = new ArrayList<>(beans.values());
-		AnnotationAwareOrderComparator.sort(allFactories);
-		return allFactories;
+		List<EventListenerFactory> factories = new ArrayList<>(beans.values());
+		AnnotationAwareOrderComparator.sort(factories);
+		return factories;
 	}
 
 	protected void processBean(
@@ -141,9 +140,8 @@ public class EventListenerMethodProcessor implements SmartInitializingSingleton,
 			Map<Method, EventListener> annotatedMethods = null;
 			try {
 				annotatedMethods = MethodIntrospector.selectMethods(targetType,
-						(MethodIntrospector.MetadataLookup<EventListener>) method -> {
-							return AnnotatedElementUtils.findMergedAnnotation(method, EventListener.class);
-						});
+						(MethodIntrospector.MetadataLookup<EventListener>) method ->
+								AnnotatedElementUtils.findMergedAnnotation(method, EventListener.class));
 			}
 			catch (Throwable ex) {
 				// An unresolvable type in a method signature, probably from a lazy bean - let's ignore it.

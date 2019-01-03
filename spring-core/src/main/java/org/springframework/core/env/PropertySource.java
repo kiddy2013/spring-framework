@@ -131,9 +131,9 @@ public abstract class PropertySource<T> {
 	 * <p>No properties other than {@code name} are evaluated.
 	 */
 	@Override
-	public boolean equals(Object obj) {
-		return (this == obj || (obj instanceof PropertySource &&
-				ObjectUtils.nullSafeEquals(this.name, ((PropertySource<?>) obj).name)));
+	public boolean equals(Object other) {
+		return (this == other || (other instanceof PropertySource &&
+				ObjectUtils.nullSafeEquals(this.name, ((PropertySource<?>) other).name)));
 	}
 
 	/**
@@ -210,6 +210,7 @@ public abstract class PropertySource<T> {
 		 * Always returns {@code null}.
 		 */
 		@Override
+		@Nullable
 		public String getProperty(String name) {
 			return null;
 		}
@@ -239,6 +240,7 @@ public abstract class PropertySource<T> {
 		}
 
 		@Override
+		@Nullable
 		public String getProperty(String name) {
 			throw new UnsupportedOperationException(USAGE_ERROR);
 		}

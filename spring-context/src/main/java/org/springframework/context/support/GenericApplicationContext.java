@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -156,11 +156,6 @@ public class GenericApplicationContext extends AbstractApplicationContext implem
 		this.beanFactory.setParentBeanFactory(getInternalParentBeanFactory());
 	}
 
-	@Override
-	public void setId(String id) {
-		super.setId(id);
-	}
-
 	/**
 	 * Set whether it should be allowed to override bean definitions by registering
 	 * a different definition with the same name, automatically replacing the former.
@@ -245,6 +240,7 @@ public class GenericApplicationContext extends AbstractApplicationContext implem
 	}
 
 	@Override
+	@Nullable
 	public ClassLoader getClassLoader() {
 		if (this.resourceLoader != null && !this.customClassLoader) {
 			return this.resourceLoader.getClassLoader();
@@ -365,8 +361,8 @@ public class GenericApplicationContext extends AbstractApplicationContext implem
 	 * bean definition metadata (typically declared as a lambda expression
 	 * or method reference).
 	 * @param beanClass the class of the bean
-	 * @param customizers one or more callbacks for customizing the
-	 * factory's {@link BeanDefinition}, e.g. setting a lazy-init or primary flag
+	 * @param customizers one or more callbacks for customizing the factory's
+	 * {@link BeanDefinition}, e.g. setting a lazy-init or primary flag
 	 * @since 5.0
 	 * @see #registerBean(String, Class, Supplier, BeanDefinitionCustomizer...)
 	 */
@@ -381,8 +377,8 @@ public class GenericApplicationContext extends AbstractApplicationContext implem
 	 * (again typically declared as a lambda expression or method reference).
 	 * @param beanName the name of the bean (may be {@code null})
 	 * @param beanClass the class of the bean
-	 * @param customizers one or more callbacks for customizing the
-	 * factory's {@link BeanDefinition}, e.g. setting a lazy-init or primary flag
+	 * @param customizers one or more callbacks for customizing the factory's
+	 * {@link BeanDefinition}, e.g. setting a lazy-init or primary flag
 	 * @since 5.0
 	 * @see #registerBean(String, Class, Supplier, BeanDefinitionCustomizer...)
 	 */
@@ -397,8 +393,8 @@ public class GenericApplicationContext extends AbstractApplicationContext implem
 	 * (again typically declared as a lambda expression or method reference).
 	 * @param beanClass the class of the bean
 	 * @param supplier a callback for creating an instance of the bean
-	 * @param customizers one or more callbacks for customizing the
-	 * factory's {@link BeanDefinition}, e.g. setting a lazy-init or primary flag
+	 * @param customizers one or more callbacks for customizing the factory's
+	 * {@link BeanDefinition}, e.g. setting a lazy-init or primary flag
 	 * @since 5.0
 	 * @see #registerBean(String, Class, Supplier, BeanDefinitionCustomizer...)
 	 */
@@ -414,10 +410,10 @@ public class GenericApplicationContext extends AbstractApplicationContext implem
 	 * <p>This method can be overridden to adapt the registration mechanism for
 	 * all {@code registerBean} methods (since they all delegate to this one).
 	 * @param beanName the name of the bean (may be {@code null})
-	 * @param beanClass the class of the bean (may be {@code null} if a name is given)
+	 * @param beanClass the class of the bean
 	 * @param supplier a callback for creating an instance of the bean
-	 * @param customizers one or more callbacks for customizing the
-	 * factory's {@link BeanDefinition}, e.g. setting a lazy-init or primary flag
+	 * @param customizers one or more callbacks for customizing the factory's
+	 * {@link BeanDefinition}, e.g. setting a lazy-init or primary flag
 	 * @since 5.0
 	 */
 	public <T> void registerBean(@Nullable String beanName, Class<T> beanClass, @Nullable Supplier<T> supplier,

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,9 +51,9 @@ import org.springframework.web.socket.UndertowTestServer;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.jetty.JettyWebSocketClient;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
-import org.springframework.web.socket.config.annotation.AbstractWebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.DelegatingWebSocketMessageBrokerConfiguration;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
+import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.socket.server.HandshakeHandler;
 
@@ -69,6 +69,7 @@ import static org.springframework.web.socket.messaging.StompTextMessageBuilder.*
 public class StompWebSocketIntegrationTests extends AbstractWebSocketIntegrationTests {
 
 	private static final long TIMEOUT = 10;
+
 
 	@Parameters(name = "server [{0}], client [{1}]")
 	public static Object[][] arguments() {
@@ -261,7 +262,7 @@ public class StompWebSocketIntegrationTests extends AbstractWebSocketIntegration
 	}
 
 
-	static interface ScopedBean {
+	interface ScopedBean {
 
 		String getValue();
 	}
@@ -315,10 +316,10 @@ public class StompWebSocketIntegrationTests extends AbstractWebSocketIntegration
 
 	@Configuration
 	@ComponentScan(
-			basePackageClasses=StompWebSocketIntegrationTests.class,
-			useDefaultFilters=false,
-			includeFilters=@ComponentScan.Filter(IntegrationTestController.class))
-	static class TestMessageBrokerConfigurer extends AbstractWebSocketMessageBrokerConfigurer {
+			basePackageClasses = StompWebSocketIntegrationTests.class,
+			useDefaultFilters = false,
+			includeFilters = @ComponentScan.Filter(IntegrationTestController.class))
+	static class TestMessageBrokerConfigurer implements WebSocketMessageBrokerConfigurer {
 
 		@Autowired
 		private HandshakeHandler handshakeHandler;  // can't rely on classpath for server detection

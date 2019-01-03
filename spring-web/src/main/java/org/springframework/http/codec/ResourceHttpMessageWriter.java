@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ package org.springframework.http.codec;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
@@ -48,8 +48,6 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.lang.Nullable;
 import org.springframework.util.MimeTypeUtils;
-
-import static java.util.Collections.emptyMap;
 
 /**
  * {@code HttpMessageWriter} that can write a {@link Resource}.
@@ -121,7 +119,10 @@ public class ResourceHttpMessageWriter implements HttpMessageWriter<Resource> {
 		headers.setContentType(resourceMediaType);
 
 		if (headers.getContentLength() < 0) {
-			lengthOf(resource).ifPresent(headers::setContentLength);
+			long length = lengthOf(resource);
+			if (length != -1) {
+				headers.setContentLength(length);
+			}
 		}
 
 		return zeroCopy(resource, null, message)
@@ -140,32 +141,30 @@ public class ResourceHttpMessageWriter implements HttpMessageWriter<Resource> {
 		return MediaTypeFactory.getMediaType(resource).orElse(MediaType.APPLICATION_OCTET_STREAM);
 	}
 
-	private static OptionalLong lengthOf(Resource resource) {
+	private static long lengthOf(Resource resource) {
 		// Don't consume InputStream...
 		if (InputStreamResource.class != resource.getClass()) {
 			try {
-				return OptionalLong.of(resource.contentLength());
+				return resource.contentLength();
 			}
 			catch (IOException ignored) {
 			}
 		}
-		return OptionalLong.empty();
+		return -1;
 	}
 
 	private static Optional<Mono<Void>> zeroCopy(Resource resource, @Nullable ResourceRegion region,
 			ReactiveHttpOutputMessage message) {
 
-		if (message instanceof ZeroCopyHttpOutputMessage) {
-			if (resource.isFile()) {
-				try {
-					File file = resource.getFile();
-					long pos = region != null ? region.getPosition() : 0;
-					long count = region != null ? region.getCount() : file.length();
-					return Optional.of(((ZeroCopyHttpOutputMessage) message).writeWith(file, pos, count));
-				}
-				catch (IOException ex) {
-					// should not happen
-				}
+		if (message instanceof ZeroCopyHttpOutputMessage && resource.isFile()) {
+			try {
+				File file = resource.getFile();
+				long pos = region != null ? region.getPosition() : 0;
+				long count = region != null ? region.getCount() : file.length();
+				return Optional.of(((ZeroCopyHttpOutputMessage) message).writeWith(file, pos, count));
+			}
+			catch (IOException ex) {
+				// should not happen
 			}
 		}
 		return Optional.empty();
@@ -205,13 +204,14 @@ public class ResourceHttpMessageWriter implements HttpMessageWriter<Resource> {
 			if (regions.size() == 1){
 				ResourceRegion region = regions.get(0);
 				headers.setContentType(resourceMediaType);
-				lengthOf(resource).ifPresent(length -> {
+				long contentLength = lengthOf(resource);
+				if (contentLength != -1) {
 					long start = region.getPosition();
 					long end = start + region.getCount() - 1;
-					end = Math.min(end, length - 1);
-					headers.add("Content-Range", "bytes " + start + '-' + end + '/' + length);
+					end = Math.min(end, contentLength - 1);
+					headers.add("Content-Range", "bytes " + start + '-' + end + '/' + contentLength);
 					headers.setContentLength(end - start + 1);
-				});
+				}
 				return writeSingleRegion(region, response);
 			}
 			else {
@@ -231,7 +231,7 @@ public class ResourceHttpMessageWriter implements HttpMessageWriter<Resource> {
 				.orElseGet(() -> {
 					Publisher<? extends ResourceRegion> input = Mono.just(region);
 					MediaType mediaType = message.getHeaders().getContentType();
-					return encodeAndWriteRegions(input, mediaType, message, emptyMap());
+					return encodeAndWriteRegions(input, mediaType, message, Collections.emptyMap());
 				});
 	}
 

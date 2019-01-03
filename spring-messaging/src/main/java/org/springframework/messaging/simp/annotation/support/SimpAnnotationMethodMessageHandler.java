@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,9 +111,9 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 	@Nullable
 	private MessageHeaderInitializer headerInitializer;
 
-	private final Object lifecycleMonitor = new Object();
-
 	private volatile boolean running = false;
+
+	private final Object lifecycleMonitor = new Object();
 
 
 	/**
@@ -231,7 +231,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 	}
 
 	/**
-	 * Set the Validator instance used for validating @Payload arguments
+	 * Set the Validator instance used for validating {@code @Payload} arguments.
 	 * @see org.springframework.validation.annotation.Validated
 	 * @see PayloadArgumentResolver
 	 */
@@ -299,9 +299,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 
 	@Override
 	public final boolean isRunning() {
-		synchronized (this.lifecycleMonitor) {
-			return this.running;
-		}
+		return this.running;
 	}
 
 
@@ -366,6 +364,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 	}
 
 	@Override
+	@Nullable
 	protected SimpMessageMappingInfo getMappingForMethod(Method method, Class<?> handlerType) {
 		MessageMapping messageAnn = AnnotatedElementUtils.findMergedAnnotation(method, MessageMapping.class);
 		if (messageAnn != null) {
@@ -438,6 +437,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 	}
 
 	@Override
+	@Nullable
 	protected String getDestination(Message<?> message) {
 		return SimpMessageHeaderAccessor.getDestination(message.getHeaders());
 	}
@@ -464,6 +464,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 	}
 
 	@Override
+	@Nullable
 	protected SimpMessageMappingInfo getMatchingMapping(SimpMessageMappingInfo mapping, Message<?> message) {
 		return mapping.getMatchingCondition(message);
 

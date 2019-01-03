@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,9 +34,10 @@ import org.springframework.util.MimeTypeUtils;
  * {@link org.springframework.core.io.buffer.DataBufferUtils#release(DataBuffer)}.
  *
  * @author Arjen Poutsma
+ * @author Rossen Stoyanchev
  * @since 5.0
  */
-public class DataBufferDecoder extends AbstractDecoder<DataBuffer> {
+public class DataBufferDecoder extends AbstractDataBufferDecoder<DataBuffer> {
 
 	public DataBufferDecoder() {
 		super(MimeTypeUtils.ALL);
@@ -46,7 +47,7 @@ public class DataBufferDecoder extends AbstractDecoder<DataBuffer> {
 	@Override
 	public boolean canDecode(ResolvableType elementType, @Nullable MimeType mimeType) {
 		Class<?> clazz = elementType.getRawClass();
-		return (super.canDecode(elementType, mimeType) && clazz != null && DataBuffer.class.isAssignableFrom(clazz));
+		return (clazz != null && DataBuffer.class.isAssignableFrom(clazz) && super.canDecode(elementType, mimeType));
 	}
 
 	@Override
@@ -54,6 +55,13 @@ public class DataBufferDecoder extends AbstractDecoder<DataBuffer> {
 			@Nullable MimeType mimeType, @Nullable Map<String, Object> hints) {
 
 		return Flux.from(inputStream);
+	}
+
+	@Override
+	protected DataBuffer decodeDataBuffer(DataBuffer buffer, ResolvableType elementType,
+			@Nullable MimeType mimeType, @Nullable Map<String, Object> hints) {
+
+		return buffer;
 	}
 
 }

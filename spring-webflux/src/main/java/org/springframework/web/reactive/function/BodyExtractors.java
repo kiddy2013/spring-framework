@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@ import org.springframework.http.codec.HttpMessageReader;
 import org.springframework.http.codec.multipart.Part;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
-import org.springframework.util.Assert;
 import org.springframework.util.MultiValueMap;
 
 /**
@@ -51,12 +50,13 @@ public abstract class BodyExtractors {
 	private static final ResolvableType FORM_MAP_TYPE =
 			ResolvableType.forClassWithGenerics(MultiValueMap.class, String.class, String.class);
 
-	private static final ResolvableType MULTIPART_MAP_TYPE = ResolvableType.forClassWithGenerics(
-			MultiValueMap.class, String.class, Part.class);
+	private static final ResolvableType MULTIPART_MAP_TYPE =
+			ResolvableType.forClassWithGenerics(MultiValueMap.class, String.class, Part.class);
 
 	private static final ResolvableType PART_TYPE = ResolvableType.forClass(Part.class);
 
 	private static final ResolvableType VOID_TYPE = ResolvableType.forClass(Void.class);
+
 
 	/**
 	 * Return a {@code BodyExtractor} that reads into a Reactor {@link Mono}.
@@ -65,14 +65,14 @@ public abstract class BodyExtractors {
 	 * @return a {@code BodyExtractor} that reads a mono
 	 */
 	public static <T> BodyExtractor<Mono<T>, ReactiveHttpInputMessage> toMono(Class<? extends T> elementClass) {
-		Assert.notNull(elementClass, "'elementClass' must not be null");
 		return toMono(ResolvableType.forClass(elementClass));
 	}
 
 	/**
 	 * Return a {@code BodyExtractor} that reads into a Reactor {@link Mono}.
-	 * The given {@link ParameterizedTypeReference} is used to pass generic type information, for
-	 * instance when using the {@link org.springframework.web.reactive.function.client.WebClient WebClient}
+	 * The given {@link ParameterizedTypeReference} is used to pass generic type
+	 * information, for instance when using the
+	 * {@link org.springframework.web.reactive.function.client.WebClient WebClient}:
 	 * <pre class="code">
 	 * Mono&lt;Map&lt;String, String&gt;&gt; body = this.webClient
 	 *  .get()
@@ -84,13 +84,13 @@ public abstract class BodyExtractors {
 	 * @param <T> the element type
 	 * @return a {@code BodyExtractor} that reads a mono
 	 */
-	public static <T> BodyExtractor<Mono<T>, ReactiveHttpInputMessage> toMono(ParameterizedTypeReference<T> typeReference) {
-		Assert.notNull(typeReference, "'typeReference' must not be null");
+	public static <T> BodyExtractor<Mono<T>, ReactiveHttpInputMessage> toMono(
+			ParameterizedTypeReference<T> typeReference) {
+
 		return toMono(ResolvableType.forType(typeReference.getType()));
 	}
 
 	static <T> BodyExtractor<Mono<T>, ReactiveHttpInputMessage> toMono(ResolvableType elementType) {
-		Assert.notNull(elementType, "'elementType' must not be null");
 		return (inputMessage, context) -> readWithMessageReaders(inputMessage, context,
 				elementType,
 				(HttpMessageReader<T> reader) -> {
@@ -115,14 +115,14 @@ public abstract class BodyExtractors {
 	 * @return a {@code BodyExtractor} that reads a flux
 	 */
 	public static <T> BodyExtractor<Flux<T>, ReactiveHttpInputMessage> toFlux(Class<? extends T> elementClass) {
-		Assert.notNull(elementClass, "'elementClass' must not be null");
 		return toFlux(ResolvableType.forClass(elementClass));
 	}
 
 	/**
 	 * Return a {@code BodyExtractor} that reads into a Reactor {@link Flux}.
-	 * The given {@link ParameterizedTypeReference} is used to pass generic type information, for
-	 * instance when using the {@link org.springframework.web.reactive.function.client.WebClient WebClient}
+	 * <p>The given {@link ParameterizedTypeReference} is used to pass generic type
+	 * information, for instance when using the
+	 * {@link org.springframework.web.reactive.function.client.WebClient WebClient}:
 	 * <pre class="code">
 	 * Flux&lt;ServerSentEvent&lt;String&gt;&gt; body = this.webClient
 	 *  .get()
@@ -134,14 +134,14 @@ public abstract class BodyExtractors {
 	 * @param <T> the element type
 	 * @return a {@code BodyExtractor} that reads a flux
 	 */
-	public static <T> BodyExtractor<Flux<T>, ReactiveHttpInputMessage> toFlux(ParameterizedTypeReference<T> typeReference) {
-		Assert.notNull(typeReference, "'typeReference' must not be null");
+	public static <T> BodyExtractor<Flux<T>, ReactiveHttpInputMessage> toFlux(
+			ParameterizedTypeReference<T> typeReference) {
+
 		return toFlux(ResolvableType.forType(typeReference.getType()));
 	}
 
 	@SuppressWarnings("unchecked")
 	static <T> BodyExtractor<Flux<T>, ReactiveHttpInputMessage> toFlux(ResolvableType elementType) {
-		Assert.notNull(elementType, "'elementType' must not be null");
 		return (inputMessage, context) -> readWithMessageReaders(inputMessage, context,
 				elementType,
 				(HttpMessageReader<T> reader) -> {
@@ -170,61 +170,56 @@ public abstract class BodyExtractors {
 	 * Return a {@code BodyExtractor} that reads form data into a {@link MultiValueMap}.
 	 * @return a {@code BodyExtractor} that reads form data
 	 */
-	// Note that the returned BodyExtractor is parameterized to ServerHttpRequest, not
-	// ReactiveHttpInputMessage like other methods, since reading form data only typically happens on
-	// the server-side
+	// Parameterized for server-side use
 	public static BodyExtractor<Mono<MultiValueMap<String, String>>, ServerHttpRequest> toFormData() {
-		return (serverRequest, context) -> {
-			HttpMessageReader<MultiValueMap<String, String>> messageReader =
-					messageReader(FORM_MAP_TYPE, MediaType.APPLICATION_FORM_URLENCODED, context);
+		return (request, context) -> {
+			ResolvableType type = FORM_MAP_TYPE;
+			HttpMessageReader<MultiValueMap<String, String>> reader =
+					messageReader(type, MediaType.APPLICATION_FORM_URLENCODED, context);
 			return context.serverResponse()
-					.map(serverResponse -> messageReader.readMono(FORM_MAP_TYPE, FORM_MAP_TYPE, serverRequest, serverResponse, context.hints()))
-					.orElseGet(() -> messageReader.readMono(FORM_MAP_TYPE, serverRequest, context.hints()));
+					.map(response -> reader.readMono(type, type, request, response, context.hints()))
+					.orElseGet(() -> reader.readMono(type, request, context.hints()));
 		};
 	}
 
 	/**
-	 * Return a {@code BodyExtractor} that reads multipart (i.e. file upload) form data into a
-	 * {@link MultiValueMap}.
+	 * Return a {@code BodyExtractor} that reads multipart (i.e. file upload) form data
+	 * into a {@link MultiValueMap}.
 	 * @return a {@code BodyExtractor} that reads multipart data
 	 */
-	// Note that the returned BodyExtractor is parameterized to ServerHttpRequest, not
-	// ReactiveHttpInputMessage like other methods, since reading form data only typically happens on
-	// the server-side
+	// Parameterized for server-side use
 	public static BodyExtractor<Mono<MultiValueMap<String, Part>>, ServerHttpRequest> toMultipartData() {
 		return (serverRequest, context) -> {
-			HttpMessageReader<MultiValueMap<String, Part>> messageReader =
-					messageReader(MULTIPART_MAP_TYPE, MediaType.MULTIPART_FORM_DATA, context);
+			ResolvableType type = MULTIPART_MAP_TYPE;
+			HttpMessageReader<MultiValueMap<String, Part>> reader =
+					messageReader(type, MediaType.MULTIPART_FORM_DATA, context);
 			return context.serverResponse()
-					.map(serverResponse -> messageReader.readMono(MULTIPART_MAP_TYPE,
-							MULTIPART_MAP_TYPE, serverRequest, serverResponse, context.hints()))
-					.orElseGet(() -> messageReader.readMono(MULTIPART_MAP_TYPE, serverRequest, context.hints()));
+					.map(response -> reader.readMono(type, type, serverRequest, response, context.hints()))
+					.orElseGet(() -> reader.readMono(type, serverRequest, context.hints()));
 		};
 	}
 
 	/**
-	 * Return a {@code BodyExtractor} that reads multipart (i.e. file upload) form data into a
-	 * {@link MultiValueMap}.
+	 * Return a {@code BodyExtractor} that reads multipart (i.e. file upload) form data
+	 * into a {@link MultiValueMap}.
 	 * @return a {@code BodyExtractor} that reads multipart data
 	 */
-	// Note that the returned BodyExtractor is parameterized to ServerHttpRequest, not
-	// ReactiveHttpInputMessage like other methods, since reading form data only typically happens on
-	// the server-side
+	// Parameterized for server-side use
 	public static BodyExtractor<Flux<Part>, ServerHttpRequest> toParts() {
 		return (serverRequest, context) -> {
-			HttpMessageReader<Part> messageReader =
-					messageReader(PART_TYPE, MediaType.MULTIPART_FORM_DATA, context);
+			ResolvableType type = PART_TYPE;
+			HttpMessageReader<Part> reader = messageReader(type, MediaType.MULTIPART_FORM_DATA, context);
 			return context.serverResponse()
-					.map(serverResponse -> messageReader.read(PART_TYPE, PART_TYPE, serverRequest, serverResponse, context.hints()))
-					.orElseGet(() -> messageReader.read(PART_TYPE, serverRequest, context.hints()));
+					.map(response -> reader.read(type, type, serverRequest, response, context.hints()))
+					.orElseGet(() -> reader.read(type, serverRequest, context.hints()));
 		};
 	}
 
 	/**
-	 * Return a {@code BodyExtractor} that returns the body of the message as a {@link Flux} of
-	 * {@link DataBuffer}s.
-	 * <p><strong>Note</strong> that the returned buffers should be released after usage by calling
-	 * {@link org.springframework.core.io.buffer.DataBufferUtils#release(DataBuffer)}
+	 * Return a {@code BodyExtractor} that returns the body of the message as a {@link Flux}
+	 * of {@link DataBuffer}s.
+	 * <p><strong>Note</strong> that the returned buffers should be released after usage by
+	 * calling {@link org.springframework.core.io.buffer.DataBufferUtils#release(DataBuffer)}.
 	 * @return a {@code BodyExtractor} that returns the body
 	 * @see ReactiveHttpInputMessage#getBody()
 	 */

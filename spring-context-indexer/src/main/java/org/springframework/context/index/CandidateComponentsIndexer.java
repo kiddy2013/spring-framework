@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.context.index;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -29,7 +30,9 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 
 /**
@@ -41,6 +44,9 @@ import javax.lang.model.element.TypeElement;
  * @since 5.0
  */
 public class CandidateComponentsIndexer implements Processor {
+
+	private static final Set<ElementKind> TYPE_KINDS =
+			Collections.unmodifiableSet(EnumSet.of(ElementKind.CLASS, ElementKind.INTERFACE));
 
 	private MetadataStore metadataStore;
 
@@ -102,6 +108,11 @@ public class CandidateComponentsIndexer implements Processor {
 	}
 
 	private void processElement(Element element) {
+		addMetadataFor(element);
+		staticTypesIn(element.getEnclosedElements()).forEach(this::processElement);
+	}
+
+	private void addMetadataFor(Element element) {
 		Set<String> stereotypes = new LinkedHashSet<>();
 		this.stereotypesProviders.forEach(p -> stereotypes.addAll(p.getStereotypes(element)));
 		if (!stereotypes.isEmpty()) {
@@ -119,6 +130,16 @@ public class CandidateComponentsIndexer implements Processor {
 				throw new IllegalStateException("Failed to write metadata", ex);
 			}
 		}
+	}
+
+	private static List<TypeElement> staticTypesIn(Iterable<? extends Element> elements) {
+		List<TypeElement> list = new ArrayList<>();
+		for (Element element : elements) {
+			if (TYPE_KINDS.contains(element.getKind()) && element.getModifiers().contains(Modifier.STATIC)) {
+				list.add(TypeElement.class.cast(element));
+			}
+		}
+		return list;
 	}
 
 }

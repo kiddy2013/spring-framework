@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,14 +34,13 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.web.test.MockServletContext;
+import org.springframework.mock.web.test.server.MockServerWebExchange;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.reactive.handler.SimpleUrlHandlerMapping;
-import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.pattern.PathPattern;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
-
 
 /**
  * Unit tests for {@link ResourceUrlProvider}.
@@ -72,7 +71,7 @@ public class ResourceUrlProviderTests {
 
 	@Test
 	public void getStaticResourceUrl() {
-		ServerWebExchange exchange = MockServerHttpRequest.get("/").toExchange();
+		MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/"));
 		String uriString = "/resources/foo.css";
 		String actual = this.urlProvider.getForUriString(uriString, exchange).block(Duration.ofSeconds(5));
 		assertEquals(uriString, actual);
@@ -80,7 +79,7 @@ public class ResourceUrlProviderTests {
 
 	@Test  // SPR-13374
 	public void getStaticResourceUrlRequestWithQueryOrHash() {
-		ServerWebExchange exchange = MockServerHttpRequest.get("/").toExchange();
+		MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/"));
 
 		String url = "/resources/foo.css?foo=bar&url=http://example.org";
 		String resolvedUrl = this.urlProvider.getForUriString(url, exchange).block(Duration.ofSeconds(5));
@@ -103,7 +102,7 @@ public class ResourceUrlProviderTests {
 		resolvers.add(new PathResourceResolver());
 		this.handler.setResourceResolvers(resolvers);
 
-		ServerWebExchange exchange = MockServerHttpRequest.get("/").toExchange();
+		MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/"));
 		String path = "/resources/foo.css";
 		String url = this.urlProvider.getForUriString(path, exchange).block(Duration.ofSeconds(5));
 		assertEquals("/resources/foo-e36d2e05253c6c7085a91522ce43a0b4.css", url);
@@ -126,13 +125,14 @@ public class ResourceUrlProviderTests {
 		this.handlerMap.put("/resources/*.css", otherHandler);
 		this.urlProvider.registerHandlers(this.handlerMap);
 
-		ServerWebExchange exchange = MockServerHttpRequest.get("/").toExchange();
+		MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/"));
 		String path = "/resources/foo.css";
 		String url = this.urlProvider.getForUriString(path, exchange).block(Duration.ofSeconds(5));
 		assertEquals("/resources/foo-e36d2e05253c6c7085a91522ce43a0b4.css", url);
 	}
 
 	@Test  // SPR-12592
+	@SuppressWarnings("resource")
 	public void initializeOnce() throws Exception {
 		AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
 		context.setServletContext(new MockServletContext());

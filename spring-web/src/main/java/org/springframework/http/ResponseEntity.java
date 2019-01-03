@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ import org.springframework.util.ObjectUtils;
  *   return new ResponseEntity&lt;String&gt;("Hello World", responseHeaders, HttpStatus.CREATED);
  * }
  * </pre>
+ *
  * Or, by using a builder accessible via static methods:
  * <pre class="code">
  * &#64;RequestMapping("/handle")
@@ -63,6 +64,7 @@ import org.springframework.util.ObjectUtils;
  * @author Arjen Poutsma
  * @author Brian Clozel
  * @since 3.0.2
+ * @param <T> the body type
  * @see #getStatusCode()
  */
 public class ResponseEntity<T> extends HttpEntity<T> {
@@ -292,8 +294,8 @@ public class ResponseEntity<T> extends HttpEntity<T> {
 
 	/**
 	 * Defines a builder that adds headers to the response entity.
-	 * @param <B> the builder subclass
 	 * @since 4.1
+	 * @param <B> the builder subclass
 	 */
 	public interface HeadersBuilder<B extends HeadersBuilder<B>> {
 
@@ -489,7 +491,7 @@ public class ResponseEntity<T> extends HttpEntity<T> {
 		public BodyBuilder cacheControl(CacheControl cacheControl) {
 			String ccValue = cacheControl.getHeaderValue();
 			if (ccValue != null) {
-				this.headers.setCacheControl(cacheControl.getHeaderValue());
+				this.headers.setCacheControl(ccValue);
 			}
 			return this;
 		}

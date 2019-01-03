@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinitionHolder;
 import org.springframework.beans.factory.groovy.GroovyBeanDefinitionReader;
 import org.springframework.beans.factory.parsing.SourceExtractor;
+import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.AbstractBeanDefinitionReader;
 import org.springframework.beans.factory.support.BeanDefinitionReader;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
@@ -90,8 +91,8 @@ class ConfigurationClassBeanDefinitionReader {
 
 
 	/**
-	 * Create a new {@link ConfigurationClassBeanDefinitionReader} instance that will be used
-	 * to populate the given {@link BeanDefinitionRegistry}.
+	 * Create a new {@link ConfigurationClassBeanDefinitionReader} instance
+	 * that will be used to populate the given {@link BeanDefinitionRegistry}.
 	 */
 	ConfigurationClassBeanDefinitionReader(BeanDefinitionRegistry registry, SourceExtractor sourceExtractor,
 			ResourceLoader resourceLoader, Environment environment, BeanNameGenerator importBeanNameGenerator,
@@ -122,8 +123,8 @@ class ConfigurationClassBeanDefinitionReader {
 	 * Read a particular {@link ConfigurationClass}, registering bean definitions
 	 * for the class itself and all of its {@link Bean} methods.
 	 */
-	private void loadBeanDefinitionsForConfigurationClass(ConfigurationClass configClass,
-			TrackedConditionEvaluator trackedConditionEvaluator) {
+	private void loadBeanDefinitionsForConfigurationClass(
+			ConfigurationClass configClass, TrackedConditionEvaluator trackedConditionEvaluator) {
 
 		if (trackedConditionEvaluator.shouldSkip(configClass)) {
 			String beanName = configClass.getBeanName();
@@ -140,6 +141,7 @@ class ConfigurationClassBeanDefinitionReader {
 		for (BeanMethod beanMethod : configClass.getBeanMethods()) {
 			loadBeanDefinitionsForBeanMethod(beanMethod);
 		}
+
 		loadBeanDefinitionsFromImportedResources(configClass.getImportedResources());
 		loadBeanDefinitionsFromRegistrars(configClass.getImportBeanDefinitionRegistrars());
 	}
@@ -220,7 +222,7 @@ class ConfigurationClassBeanDefinitionReader {
 			beanDef.setFactoryBeanName(configClass.getBeanName());
 			beanDef.setUniqueFactoryMethodName(methodName);
 		}
-		beanDef.setAutowireMode(RootBeanDefinition.AUTOWIRE_CONSTRUCTOR);
+		beanDef.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_CONSTRUCTOR);
 		beanDef.setAttribute(RequiredAnnotationBeanPostProcessor.SKIP_REQUIRED_CHECK_ATTRIBUTE, Boolean.TRUE);
 
 		AnnotationConfigUtils.processCommonDefinitionAnnotations(beanDef, metadata);
@@ -263,7 +265,6 @@ class ConfigurationClassBeanDefinitionReader {
 			logger.debug(String.format("Registering bean definition for @Bean method %s.%s()",
 					configClass.getMetadata().getClassName(), beanName));
 		}
-
 		this.registry.registerBeanDefinition(beanName, beanDefToRegister);
 	}
 
@@ -315,10 +316,7 @@ class ConfigurationClassBeanDefinitionReader {
 
 		Map<Class<?>, BeanDefinitionReader> readerInstanceCache = new HashMap<>();
 
-		for (Map.Entry<String, Class<? extends BeanDefinitionReader>> entry : importedResources.entrySet()) {
-			String resource = entry.getKey();
-			Class<? extends BeanDefinitionReader> readerClass = entry.getValue();
-
+		importedResources.forEach((resource, readerClass) -> {
 			// Default reader selection necessary?
 			if (BeanDefinitionReader.class == readerClass) {
 				if (StringUtils.endsWithIgnoreCase(resource, ".groovy")) {
@@ -352,7 +350,7 @@ class ConfigurationClassBeanDefinitionReader {
 
 			// TODO SPR-6310: qualify relative path locations as done in AbstractContextLoader.modifyLocations
 			reader.loadBeanDefinitions(resource);
-		}
+		});
 	}
 
 	private void loadBeanDefinitionsFromRegistrars(Map<ImportBeanDefinitionRegistrar, AnnotationMetadata> registrars) {

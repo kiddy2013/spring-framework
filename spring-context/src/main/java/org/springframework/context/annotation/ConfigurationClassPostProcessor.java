@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 
-import static org.springframework.context.annotation.AnnotationConfigUtils.*;
+import static org.springframework.context.annotation.AnnotationConfigUtils.CONFIGURATION_BEAN_NAME_GENERATOR;
 
 /**
  * {@link BeanFactoryPostProcessor} used for bootstrapping processing of
@@ -74,10 +74,10 @@ import static org.springframework.context.annotation.AnnotationConfigUtils.*;
  * {@code <context:component-scan/>}. Otherwise, may be declared manually as
  * with any other BeanFactoryPostProcessor.
  *
- * <p>This post processor is {@link Ordered#HIGHEST_PRECEDENCE} as it is important
- * that any {@link Bean} methods declared in Configuration classes have their
- * respective bean definitions registered before any other BeanFactoryPostProcessor
- * executes.
+ * <p>This post processor is priority-ordered as it is important that any
+ * {@link Bean} methods declared in {@code @Configuration} classes have
+ * their corresponding bean definitions registered before any other
+ * {@link BeanFactoryPostProcessor} executes.
  *
  * @author Chris Beams
  * @author Juergen Hoeller
@@ -285,7 +285,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		configCandidates.sort((bd1, bd2) -> {
 			int i1 = ConfigurationClassUtils.getOrder(bd1.getBeanDefinition());
 			int i2 = ConfigurationClassUtils.getOrder(bd2.getBeanDefinition());
-			return (i1 < i2) ? -1 : (i1 > i2) ? 1 : 0;
+			return Integer.compare(i1, i2);
 		});
 
 		// Detect any custom bean name generation strategy supplied through the enclosing application context
@@ -351,10 +351,8 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		while (!candidates.isEmpty());
 
 		// Register the ImportRegistry as a bean in order to support ImportAware @Configuration classes
-		if (sbr != null) {
-			if (!sbr.containsSingleton(IMPORT_REGISTRY_BEAN_NAME)) {
-				sbr.registerSingleton(IMPORT_REGISTRY_BEAN_NAME, parser.getImportRegistry());
-			}
+		if (sbr != null && !sbr.containsSingleton(IMPORT_REGISTRY_BEAN_NAME)) {
+			sbr.registerSingleton(IMPORT_REGISTRY_BEAN_NAME, parser.getImportRegistry());
 		}
 
 		if (this.metadataReaderFactory instanceof CachingMetadataReaderFactory) {

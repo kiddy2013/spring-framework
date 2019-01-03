@@ -22,8 +22,10 @@ import java.util.Iterator;
 import org.springframework.lang.Nullable;
 
 /**
- * A base class for {@link MessageCondition} types providing implementations of
- * {@link #equals(Object)}, {@link #hashCode()}, and {@link #toString()}.
+ * Base class for {@code MessageCondition's} that pre-declares abstract methods
+ * {@link #getContent()} and {@link #getToStringInfix()} in order to provide
+ * implementations of {@link #equals(Object)}, {@link #hashCode()}, and
+ * {@link #toString()}.
  *
  * @author Rossen Stoyanchev
  * @since 4.0
@@ -31,15 +33,14 @@ import org.springframework.lang.Nullable;
 public abstract class AbstractMessageCondition<T extends AbstractMessageCondition<T>> implements MessageCondition<T> {
 
 	@Override
-	public boolean equals(@Nullable Object obj) {
-		if (this == obj) {
+	public boolean equals(@Nullable Object other) {
+		if (this == other) {
 			return true;
 		}
-		if (obj != null && getClass() == obj.getClass()) {
-			AbstractMessageCondition<?> other = (AbstractMessageCondition<?>) obj;
-			return getContent().equals(other.getContent());
+		if (other == null || getClass() != other.getClass()) {
+			return false;
 		}
-		return false;
+		return getContent().equals(((AbstractMessageCondition<?>) other).getContent());
 	}
 
 	@Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.lang.Nullable;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.socket.WebSocketHandler;
@@ -37,7 +38,9 @@ import org.springframework.web.socket.sockjs.transport.session.AbstractHttpSockJ
  * A {@link TransportHandler} that receives messages over HTTP.
  *
  * @author Rossen Stoyanchev
+ * @deprecated Will be removed as of Spring Framework 5.1, use others transports instead.
  */
+@Deprecated
 public class JsonpReceivingTransportHandler extends AbstractHttpReceivingTransportHandler {
 
 	private final FormHttpMessageConverter formConverter = new FormHttpMessageConverter();
@@ -62,6 +65,7 @@ public class JsonpReceivingTransportHandler extends AbstractHttpReceivingTranspo
 	}
 
 	@Override
+	@Nullable
 	protected String[] readMessages(ServerHttpRequest request) throws IOException {
 		SockJsMessageCodec messageCodec = getServiceConfig().getMessageCodec();
 		MediaType contentType = request.getHeaders().getContentType();

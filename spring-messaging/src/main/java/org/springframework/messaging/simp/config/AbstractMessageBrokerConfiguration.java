@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.springframework.messaging.simp.config;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,13 +127,15 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 	public AbstractSubscribableChannel clientInboundChannel() {
 		ExecutorSubscribableChannel channel = new ExecutorSubscribableChannel(clientInboundChannelExecutor());
 		ChannelRegistration reg = getClientInboundChannelRegistration();
-		channel.setInterceptors(reg.getInterceptors());
+		if (reg.hasInterceptors()) {
+			channel.setInterceptors(reg.getInterceptors());
+		}
 		return channel;
 	}
 
 	@Bean
 	public ThreadPoolTaskExecutor clientInboundChannelExecutor() {
-		TaskExecutorRegistration reg = getClientInboundChannelRegistration().getOrCreateTaskExecRegistration();
+		TaskExecutorRegistration reg = getClientInboundChannelRegistration().taskExecutor();
 		ThreadPoolTaskExecutor executor = reg.getTaskExecutor();
 		executor.setThreadNamePrefix("clientInboundChannel-");
 		return executor;
@@ -142,7 +145,7 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 		if (this.clientInboundChannelRegistration == null) {
 			ChannelRegistration registration = new ChannelRegistration();
 			configureClientInboundChannel(registration);
-			registration.setInterceptors(new ImmutableMessageChannelInterceptor());
+			registration.interceptors(new ImmutableMessageChannelInterceptor());
 			this.clientInboundChannelRegistration = registration;
 		}
 		return this.clientInboundChannelRegistration;
@@ -159,13 +162,15 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 	public AbstractSubscribableChannel clientOutboundChannel() {
 		ExecutorSubscribableChannel channel = new ExecutorSubscribableChannel(clientOutboundChannelExecutor());
 		ChannelRegistration reg = getClientOutboundChannelRegistration();
-		channel.setInterceptors(reg.getInterceptors());
+		if (reg.hasInterceptors()) {
+			channel.setInterceptors(reg.getInterceptors());
+		}
 		return channel;
 	}
 
 	@Bean
 	public ThreadPoolTaskExecutor clientOutboundChannelExecutor() {
-		TaskExecutorRegistration reg = getClientOutboundChannelRegistration().getOrCreateTaskExecRegistration();
+		TaskExecutorRegistration reg = getClientOutboundChannelRegistration().taskExecutor();
 		ThreadPoolTaskExecutor executor = reg.getTaskExecutor();
 		executor.setThreadNamePrefix("clientOutboundChannel-");
 		return executor;
@@ -175,7 +180,7 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 		if (this.clientOutboundChannelRegistration == null) {
 			ChannelRegistration registration = new ChannelRegistration();
 			configureClientOutboundChannel(registration);
-			registration.setInterceptors(new ImmutableMessageChannelInterceptor());
+			registration.interceptors(new ImmutableMessageChannelInterceptor());
 			this.clientOutboundChannelRegistration = registration;
 		}
 		return this.clientOutboundChannelRegistration;
@@ -191,9 +196,9 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 	@Bean
 	public AbstractSubscribableChannel brokerChannel() {
 		ChannelRegistration reg = getBrokerRegistry().getBrokerChannelRegistration();
-		ExecutorSubscribableChannel channel = reg.hasTaskExecutor() ?
-				new ExecutorSubscribableChannel(brokerChannelExecutor()) : new ExecutorSubscribableChannel();
-		reg.setInterceptors(new ImmutableMessageChannelInterceptor());
+		ExecutorSubscribableChannel channel = (reg.hasTaskExecutor() ?
+				new ExecutorSubscribableChannel(brokerChannelExecutor()) : new ExecutorSubscribableChannel());
+		reg.interceptors(new ImmutableMessageChannelInterceptor());
 		channel.setInterceptors(reg.getInterceptors());
 		return channel;
 	}
@@ -287,7 +292,18 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 	@Bean
 	public AbstractBrokerMessageHandler simpleBrokerMessageHandler() {
 		SimpleBrokerMessageHandler handler = getBrokerRegistry().getSimpleBroker(brokerChannel());
-		return (handler != null ? handler : new NoOpBrokerMessageHandler());
+		if (handler == null) {
+			return new NoOpBrokerMessageHandler();
+		}
+		updateUserDestinationResolver(handler);
+		return handler;
+	}
+
+	private void updateUserDestinationResolver(AbstractBrokerMessageHandler handler) {
+		Collection<String> prefixes = handler.getDestinationPrefixes();
+		if (!prefixes.isEmpty() && !prefixes.iterator().next().startsWith("/")) {
+			((DefaultUserDestinationResolver) userDestinationResolver()).setRemoveLeadingSlash(true);
+		}
 	}
 
 	@Bean
@@ -296,7 +312,7 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 		if (handler == null) {
 			return new NoOpBrokerMessageHandler();
 		}
-		Map<String, MessageHandler> subscriptions = new HashMap<>(1);
+		Map<String, MessageHandler> subscriptions = new HashMap<>(4);
 		String destination = getBrokerRegistry().getUserDestinationBroadcast();
 		if (destination != null) {
 			subscriptions.put(destination, userDestinationMessageHandler());
@@ -306,6 +322,7 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 			subscriptions.put(destination, userRegistryMessageHandler());
 		}
 		handler.setSystemSubscriptions(subscriptions);
+		updateUserDestinationResolver(handler);
 		return handler;
 	}
 
@@ -392,7 +409,6 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 		if (prefix != null) {
 			resolver.setUserDestinationPrefix(prefix);
 		}
-		resolver.setPathMatcher(getPathMatcher());
 		return resolver;
 	}
 

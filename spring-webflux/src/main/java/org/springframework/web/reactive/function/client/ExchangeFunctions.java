@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 
 package org.springframework.web.reactive.function.client;
 
-import java.util.logging.Level;
-
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Mono;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.client.reactive.ClientHttpConnector;
 import org.springframework.util.Assert;
 
@@ -29,9 +30,13 @@ import org.springframework.util.Assert;
  * {@code ClientHttpConnector}.
  *
  * @author Arjen Poutsma
+ * @author Rossen Stoyanchev
  * @since 5.0
  */
 public abstract class ExchangeFunctions {
+
+	private static final Log logger = LogFactory.getLog(ExchangeFunctions.class);
+
 
 	/**
 	 * Create a new {@link ExchangeFunction} with the given connector. This method uses
@@ -50,8 +55,8 @@ public abstract class ExchangeFunctions {
 	 * @return the created function
 	 */
 	public static ExchangeFunction create(ClientHttpConnector connector, ExchangeStrategies strategies) {
-		Assert.notNull(connector, "'connector' must not be null");
-		Assert.notNull(strategies, "'strategies' must not be null");
+		Assert.notNull(connector, "ClientHttpConnector must not be null");
+		Assert.notNull(strategies, "ExchangeStrategies must not be null");
 		return new DefaultExchangeFunction(connector, strategies);
 	}
 
@@ -69,13 +74,22 @@ public abstract class ExchangeFunctions {
 
 		@Override
 		public Mono<ClientResponse> exchange(ClientRequest request) {
-			Assert.notNull(request, "'request' must not be null");
+			Assert.notNull(request, "ClientRequest must not be null");
 			return this.connector
 					.connect(request.method(), request.url(),
 							clientHttpRequest -> request.writeTo(clientHttpRequest, this.strategies))
-					.log("org.springframework.web.reactive.function.client", Level.FINE)
-					.map(clientHttpResponse -> new DefaultClientResponse(clientHttpResponse,
-							this.strategies));
+					.doOnSubscribe(subscription -> logger.debug("Subscriber present"))
+					.doOnRequest(n -> logger.debug("Demand signaled"))
+					.doOnCancel(() -> logger.debug("Cancelling request"))
+					.map(response -> {
+						if (logger.isDebugEnabled()) {
+							int status = response.getRawStatusCode();
+							HttpStatus resolvedStatus = HttpStatus.resolve(status);
+							logger.debug("Response received, status: " + status +
+									(resolvedStatus != null ? " " + resolvedStatus.getReasonPhrase() : ""));
+						}
+						return new DefaultClientResponse(response, this.strategies);
+					});
 		}
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 package org.springframework.web.reactive.result.method.annotation;
 
-import java.util.Collections;
 import java.util.List;
 
 import reactor.core.publisher.Flux;
@@ -52,48 +51,48 @@ import org.springframework.web.server.ServerWebInputException;
  */
 public class RequestPartMethodArgumentResolver extends AbstractMessageReaderArgumentResolver {
 
-
-	public RequestPartMethodArgumentResolver(List<HttpMessageReader<?>> readers,
-			ReactiveAdapterRegistry registry) {
-
+	public RequestPartMethodArgumentResolver(List<HttpMessageReader<?>> readers, ReactiveAdapterRegistry registry) {
 		super(readers, registry);
 	}
 
 
 	@Override
 	public boolean supportsParameter(MethodParameter parameter) {
-		return parameter.hasParameterAnnotation(RequestPart.class) ||
-				checkParameterType(parameter, Part.class::isAssignableFrom);
+		return (parameter.hasParameterAnnotation(RequestPart.class) ||
+				checkParameterType(parameter, Part.class::isAssignableFrom));
 	}
 
-
 	@Override
-	public Mono<Object> resolveArgument(MethodParameter parameter, BindingContext bindingContext,
-			ServerWebExchange exchange) {
+	public Mono<Object> resolveArgument(
+			MethodParameter parameter, BindingContext bindingContext, ServerWebExchange exchange) {
 
 		RequestPart requestPart = parameter.getParameterAnnotation(RequestPart.class);
 		boolean isRequired = (requestPart == null || requestPart.required());
 		String name = getPartName(parameter, requestPart);
 
-		Flux<Part> partFlux = getPartValues(name, exchange);
-		if (isRequired) {
-			partFlux = partFlux.switchIfEmpty(Flux.error(getMissingPartException(name, parameter)));
-		}
+		Flux<Part> values = exchange.getMultipartData()
+				.flatMapMany(map -> {
+					List<Part> parts = map.get(name);
+					if (CollectionUtils.isEmpty(parts)) {
+						return (isRequired ? Flux.error(getMissingPartException(name, parameter)) : Flux.empty());
+					}
+					return Flux.fromIterable(parts);
+				});
 
 		ReactiveAdapter adapter = getAdapterRegistry().getAdapter(parameter.getParameterType());
 		MethodParameter elementType = adapter != null ? parameter.nested() : parameter;
 
 		if (Part.class.isAssignableFrom(elementType.getNestedParameterType())) {
 			if (adapter != null) {
-				partFlux = adapter.isMultiValue() ? partFlux : partFlux.take(1);
-				return Mono.just(adapter.fromPublisher(partFlux));
+				values = adapter.isMultiValue() ? values : values.take(1);
+				return Mono.just(adapter.fromPublisher(values));
 			}
 			else {
-				return partFlux.next().cast(Object.class);
+				return values.next().cast(Object.class);
 			}
 		}
 
-		return partFlux.next().flatMap(part -> {
+		return values.next().flatMap(part -> {
 			ServerHttpRequest partRequest = new PartServerHttpRequest(exchange.getRequest(), part);
 			ServerWebExchange partExchange = exchange.mutate().request(partRequest).build();
 			return readBody(parameter, isRequired, bindingContext, partExchange);
@@ -111,12 +110,6 @@ public class RequestPartMethodArgumentResolver extends AbstractMessageReaderArgu
 			}
 		}
 		return partName;
-	}
-
-	private Flux<Part> getPartValues(String name, ServerWebExchange exchange) {
-		return exchange.getMultipartData()
-				.filter(map -> !CollectionUtils.isEmpty(map.get(name)))
-				.flatMapIterable(map -> map.getOrDefault(name, Collections.emptyList()));
 	}
 
 	private ServerWebInputException getMissingPartException(String name, MethodParameter param) {
