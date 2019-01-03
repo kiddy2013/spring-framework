@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.beans.factory.support;
 import java.beans.PropertyDescriptor;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -50,6 +51,17 @@ import org.springframework.util.ClassUtils;
  */
 abstract class AutowireUtils {
 
+	private static final Comparator<Executable> EXECUTABLE_COMPARATOR = (e1, e2) -> {
+		boolean p1 = Modifier.isPublic(e1.getModifiers());
+		boolean p2 = Modifier.isPublic(e2.getModifiers());
+		if (p1 != p2) {
+			return (p1 ? -1 : 1);
+		}
+		int c1pl = e1.getParameterCount();
+		int c2pl = e2.getParameterCount();
+		return Integer.compare(c2pl, c1pl);
+	};
+
 	/**
 	 * Sort the given constructors, preferring public constructors and "greedy" ones with
 	 * a maximum number of arguments. The result will contain public constructors first,
@@ -58,19 +70,7 @@ abstract class AutowireUtils {
 	 * @param constructors the constructor array to sort
 	 */
 	public static void sortConstructors(Constructor<?>[] constructors) {
-		Arrays.sort(constructors, new Comparator<Constructor<?>>() {
-			@Override
-			public int compare(Constructor<?> c1, Constructor<?> c2) {
-				boolean p1 = Modifier.isPublic(c1.getModifiers());
-				boolean p2 = Modifier.isPublic(c2.getModifiers());
-				if (p1 != p2) {
-					return (p1 ? -1 : 1);
-				}
-				int c1pl = c1.getParameterCount();
-				int c2pl = c2.getParameterCount();
-				return (c1pl < c2pl ? 1 : (c1pl > c2pl ? -1 : 0));
-			}
-		});
+		Arrays.sort(constructors, EXECUTABLE_COMPARATOR);
 	}
 
 	/**
@@ -81,19 +81,7 @@ abstract class AutowireUtils {
 	 * @param factoryMethods the factory method array to sort
 	 */
 	public static void sortFactoryMethods(Method[] factoryMethods) {
-		Arrays.sort(factoryMethods, new Comparator<Method>() {
-			@Override
-			public int compare(Method fm1, Method fm2) {
-				boolean p1 = Modifier.isPublic(fm1.getModifiers());
-				boolean p2 = Modifier.isPublic(fm2.getModifiers());
-				if (p1 != p2) {
-					return (p1 ? -1 : 1);
-				}
-				int c1pl = fm1.getParameterCount();
-				int c2pl = fm2.getParameterCount();
-				return (c1pl < c2pl ? 1 : (c1pl > c2pl ? -1 : 0));
-			}
-		});
+		Arrays.sort(factoryMethods, EXECUTABLE_COMPARATOR);
 	}
 
 	/**
@@ -145,7 +133,6 @@ abstract class AutowireUtils {
 	 * @param requiredType the type to assign the result to
 	 * @return the resolved value
 	 */
-	@Nullable
 	public static Object resolveAutowiringValue(Object autowiringValue, Class<?> requiredType) {
 		if (autowiringValue instanceof ObjectFactory && !requiredType.isInstance(autowiringValue)) {
 			ObjectFactory<?> factory = (ObjectFactory<?>) autowiringValue;
@@ -166,7 +153,7 @@ abstract class AutowireUtils {
 	 * on the given method itself.
 	 * <p>For example, given a factory method with the following signature, if
 	 * {@code resolveReturnTypeForFactoryMethod()} is invoked with the reflected
-	 * method for {@code creatProxy()} and an {@code Object[]} array containing
+	 * method for {@code createProxy()} and an {@code Object[]} array containing
 	 * {@code MyService.class}, {@code resolveReturnTypeForFactoryMethod()} will
 	 * infer that the target return type is {@code MyService}.
 	 * <pre class="code">{@code public static <T> T createProxy(Class<T> clazz)}</pre>

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ import org.springframework.util.ObjectUtils;
  * {@link javax.jms.TextMessage TextMessages}. Notice also how the
  * name of the {@code Message} handling method is different from the
  * {@link #ORIGINAL_DEFAULT_LISTENER_METHOD original} (this will have to
- * be configured in the attandant bean definition). Again, no {@code Message}
+ * be configured in the attendant bean definition). Again, no {@code Message}
  * will be sent back as the method returns {@code void}.
  *
  * <pre class="code">public interface TextMessageContentDelegate {
@@ -216,11 +216,6 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener imp
 		// Regular case: find a handler method reflectively.
 		Object convertedMessage = extractMessage(message);
 		String methodName = getListenerMethodName(message, convertedMessage);
-		if (methodName == null) {
-			throw new javax.jms.IllegalStateException("No default listener method specified: " +
-					"Either specify a non-null value for the 'defaultListenerMethod' property or " +
-					"override the 'getListenerMethodName' method.");
-		}
 
 		// Invoke the handler method with appropriate arguments.
 		Object[] listenerArguments = buildListenerArguments(convertedMessage);
@@ -256,7 +251,6 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener imp
 	 * @throws JMSException if thrown by JMS API methods
 	 * @see #setDefaultListenerMethod
 	 */
-	@Nullable
 	protected String getListenerMethodName(Message originalMessage, Object extractedMessage) throws JMSException {
 		return getDefaultListenerMethod();
 	}
